@@ -39,6 +39,27 @@ vector<vector<int>> parseInput(const string& filename)
     return result;
 }
 
+void saveToFile(const vector<vector<int>>& points)
+{
+    ofstream file0;
+    file0.open("out0.txt");
+    for (size_t i = 0; i < points[0].size() - 1; ++i)
+    {
+        file0 << points[0][i] << "\t" << points[0][i + 1] << "\n";
+    }
+    file0 << points[0][points[0].size() - 1] << "\t" << points[0][0];
+    file0.close();
+
+    ofstream file1;
+    file1.open("out1.txt");
+    for (size_t i = 0; i < points[1].size() - 1; ++i)
+    {
+        file1 << points[1][i] << "\t" << points[1][i + 1] << "\n";
+    }
+    file1 << points[1][points[1].size() - 1] << "\t" << points[1][0];
+    file1.close();
+}
+
 double euclideanDistance(const vector<int>& p1, const vector<int>& p2)
 {
     double sum = 0.0;
@@ -237,6 +258,9 @@ int main(int argc, char* argv[])
 
     // Display cycles
     showCycles(cyclesPoints);
+
+    // Save results to file
+    saveToFile(cyclesPoints);
 
     return 0;
 }
