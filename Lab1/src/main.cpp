@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <cmath>
+#include <ctime>
 
 using namespace std;
 
@@ -45,6 +46,35 @@ double euclideanDistance(const vector<int>& p1, const vector<int>& p2)
     return sqrt(sum);
 }
 
+vector<vector<int>> initializeCycles(const vector<vector<double>>& distances)
+{
+    // Choose starting point
+    srand( time( NULL ) );
+    int startingPoint = rand() % distances.size();
+
+    cout << "Wylosowany punkt: " << startingPoint << "\n";
+    cout << "Odleglosci:\n";
+    for (size_t i = 0; i < 10; ++i)
+    {
+        cout << distances[startingPoint][i] << "\n";
+    }
+
+    // Choose second point
+    double maximumDistance = distances[startingPoint][startingPoint];
+    int secondPoint = startingPoint;
+    for (size_t j = 0; j < distances[startingPoint].size(); ++j)
+    {
+        if (distances[startingPoint][j] > maximumDistance)
+        {
+            maximumDistance = distances[startingPoint][j];
+            secondPoint = j;
+        }
+    }
+
+    vector<vector<int>> initializedCycles = {vector<int> {startingPoint}, vector<int> {secondPoint}};
+    return initializedCycles;
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)
@@ -73,6 +103,12 @@ int main(int argc, char* argv[])
         cout << distances[0][j] << " ";
     }
     cout << endl;
+
+    // Initialize cycles with first point in each
+    vector<vector<int>> cycles = initializeCycles(distances);
+    cout << "First point: " << cycles[0][0] << "\n";
+    cout << "Second point: " << cycles[1][0] << "\n";
+    cout << "Distance between them: " << distances[cycles[0][0]][cycles[1][0]] << "\n";
 
 
     return 0;
