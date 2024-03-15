@@ -1,9 +1,9 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
 #include <cmath>
 #include <ctime>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <vector>
 
 using namespace std;
 
@@ -96,13 +96,6 @@ int main(int argc, char* argv[])
             distances[i][j] = distances[j][i] = dist;
         }
     }
-
-    // Output the distances
-    for (size_t j = 0; j < distances[0].size(); ++j)
-    {
-        cout << distances[0][j] << " ";
-    }
-    cout << endl;
 
     // Initialize cycles with first point in each
     vector<vector<int>> cycles = initializeCycles(distances);
