@@ -1,9 +1,12 @@
+#include <algorithm>
 #include <cmath>
 #include <ctime>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
+#define NUM_OF_CYCLES 2
 
 using namespace std;
 
@@ -76,7 +79,7 @@ int findClosestPoint(const vector<vector<double>>& distances, const vector<bool>
     return closestPoint;
 }
 
-vector<vector<int>> initializeCycles(const vector<vector<double>>& distances)
+vector<vector<int>> initializeCyclesPoints(const vector<vector<double>>& distances)
 {
     // Choose starting point
     srand( time( NULL ) );
@@ -89,12 +92,46 @@ vector<vector<int>> initializeCycles(const vector<vector<double>>& distances)
     return initializedCycles;
 }
 
+vector<vector<double>> computeCyclesLengths(const vector<vector<int>>& cycles, const vector<vector<double>>& distances)
+{
+    vector<vector<double>> lengths = {vector<double> {}, vector<double> {}};
+    // First cycle
+    for (size_t i = 0; i < cycles[0].size() - 1; ++i)
+    {
+        lengths[0].push_back(distances[cycles[0][i]][cycles[0][i + 1]]);
+    }
+    lengths[0].push_back(distances[cycles[0][cycles[0].size() - 1]][cycles[0][0]]);
+
+    // Second cycle
+    for (size_t i = 0; i < cycles[1].size() - 1; ++i)
+    {
+        lengths[1].push_back(distances[cycles[1][i]][cycles[1][i + 1]]);
+    }
+    lengths[1].push_back(distances[cycles[1][cycles[1].size() - 1]][cycles[1][0]]);
+
+    return lengths;
+}
+
+double getCycleLength(vector<double>& lengths)
+{
+    double sum = 0.0;
+    for (size_t i = 0; i < lengths.size(); ++i)
+    {
+        sum += lengths[i];
+    }
+    return sum;
+}
+
 void showCycles(const vector<vector<int>>& cycles)
 {
     cout << "First cycle\tSecond cycle\n";
     for (size_t j = 0; j < cycles[0].size(); ++j)
     {
-        cout << cycles[0][j] << "\t\t" << cycles[1][j] << "\n";
+        if (cycles[0].size() > j)
+            cout << cycles[0][j];
+        if (cycles[1].size() > j)
+            cout << "\t\t" << cycles[1][j];
+        cout << "\n";
     }
 }
 
@@ -121,20 +158,85 @@ int main(int argc, char* argv[])
     }
 
     // Initialize cycles with first point in each
-    vector<vector<int>> cycles = initializeCycles(distances);
+    vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances);
     vector<bool> taken = vector<bool>(distances.size(), false);
-    taken[cycles[0][0]] = 1;
-    taken[cycles[1][0]] = 1;
+    taken[cyclesPoints[0][0]] = true;
+    taken[cyclesPoints[1][0]] = true;
 
     // Start the cycles with second point for each previously generated point
-    int newPoint0 = findClosestPoint(distances, taken, cycles[0][0]);
-    cycles[0].push_back(newPoint0);
+    int newPoint0 = findClosestPoint(distances, taken, cyclesPoints[0][0]);
+    cyclesPoints[0].push_back(newPoint0);
     taken[newPoint0] = true;
-    int newPoint1 = findClosestPoint(distances, taken, cycles[1][0]);
-    cycles[1].push_back(newPoint1);
+    int newPoint1 = findClosestPoint(distances, taken, cyclesPoints[1][0]);
+    cyclesPoints[1].push_back(newPoint1);
     taken[newPoint1] = true;
 
-    showCycles(cycles);
+    // Initialize the cyclesLengths container
+    vector<vector<double>> cyclesLengths = computeCyclesLengths(cyclesPoints, distances);
+
+    while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+    {
+        // For each cycle
+        for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; ++cycleIndex)
+        {
+            if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+                break;
+
+            // Find new point to insert from all free points
+            double shortestNewCycleLength = 100000000000; // TODO: Choose correct value
+            int bestPoint = 0; // TODO: Choose correct value
+            int bestPlace = 0; // TODO: Choose correct value
+            for (size_t point = 0; point < taken.size(); ++point)
+            {
+                if (taken[point])
+                    continue;
+
+                // Find place to insert the new point (after the place index)
+                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); ++place)
+                {
+                    // Create new cyclePoints vector
+                    vector<int> newCyclePoints = cyclesPoints[cycleIndex];
+                    size_t indexToInsert = (place + 1) % (newCyclePoints.size() + 1);
+                    newCyclePoints.insert(newCyclePoints.begin() + indexToInsert, point);
+
+                    // Create new cycleLengths vector
+                    vector<double> newCycleLengths = cyclesLengths[cycleIndex];
+                    // Remove edge
+                    newCycleLengths.erase(newCycleLengths.begin() + place);
+                    // Insert first edge
+                    double valueToInsert = distances[point][newCyclePoints[(place + 2) % newCyclePoints.size()]];
+                    newCycleLengths.insert(newCycleLengths.begin() + place, valueToInsert);
+                    // Insert second edge
+                    valueToInsert = distances[newCyclePoints[place]][point];
+                    newCycleLengths.insert(newCycleLengths.begin() + place, valueToInsert);
+
+                    // Get new cycle total length
+                    double newTotalLength = getCycleLength(newCycleLengths);
+                    if (newTotalLength < shortestNewCycleLength)
+                    {
+                        shortestNewCycleLength = newTotalLength;
+                        bestPoint = point;
+                        bestPlace = place;
+                    }
+                }
+            }
+
+            // Add chosen point to the cycle
+            size_t indexToInsert = (bestPlace + 1) % (cyclesPoints[cycleIndex].size() + 1);
+            cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + indexToInsert, bestPoint);
+            cyclesLengths[cycleIndex].erase(cyclesLengths[cycleIndex].begin() + bestPlace);
+            double valueToInsert = distances[bestPoint][cyclesPoints[cycleIndex][(bestPlace + 2) % cyclesPoints[cycleIndex].size()]];
+            cyclesLengths[cycleIndex].insert(cyclesLengths[cycleIndex].begin() + bestPlace, valueToInsert);
+            valueToInsert = distances[cyclesPoints[cycleIndex][bestPlace]][bestPoint];
+            cyclesLengths[cycleIndex].insert(cyclesLengths[cycleIndex].begin() + bestPlace, valueToInsert);
+
+            // Mark point as taken
+            taken[bestPoint] = true;
+        }
+    }
+
+    // Display cycles
+    showCycles(cyclesPoints);
 
     return 0;
 }
