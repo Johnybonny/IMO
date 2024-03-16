@@ -1,3 +1,4 @@
+import argparse
 import matplotlib.pyplot as plt
 
 def read_vertex_coordinates(filename):
@@ -23,7 +24,7 @@ def read_connections(filename):
             connections.append((vertex1, vertex2))
     return connections
 
-def draw_map(vertices, connections1, connections2, color1='b', color2='r'):
+def draw_map(vertices, connections1, connections2, map_filename, color1='b', color2='r'):
     fig, ax = plt.subplots()
     
     # Plot vertices
@@ -50,16 +51,18 @@ def draw_map(vertices, connections1, connections2, color1='b', color2='r'):
     plt.ylabel('Y')
     plt.title('Map with Vertices and Connections')
     plt.grid(True)
-    plt.savefig("data/map.png", dpi=300)
+    plt.savefig(map_filename, dpi=300)
 
 if __name__ == "__main__":
-    vertex_file = "data/kroA100.tsp"
-    connection_file1 = "data/connections1.txt"
-    connection_file2 = "data/connections2.txt"
-
+    parser = argparse.ArgumentParser(description='Process vertex file')
+    parser.add_argument('vertex_file', type=str, help='Path to the vertex file')
+    args = parser.parse_args()
+    vertex_file = args.vertex_file
+    connection_file1 = f"out/greedy_cycle1.txt"
+    connection_file2 = f"out/greedy_cycle2.txt"
 
     vertices = read_vertex_coordinates(vertex_file)
     connections1 = read_connections(connection_file1)
     connections2 = read_connections(connection_file2)
 
-    draw_map(vertices, connections1, connections2, color1='b', color2='r')
+    draw_map(vertices, connections1, connections2, map_filename=f"out/map_greedy_{vertex_file.split('.')[0].split('/')[1]}.png", color1='b', color2='r')
