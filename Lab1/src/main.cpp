@@ -430,8 +430,8 @@ int main(int argc, char* argv[])
     }
 
     // Save greedy cycle results
-    saveCycleToFile(greedyCycleBestPoints, "greedy_cycle1.txt", "greedy_cycle2.txt");
-    saveResultsToFile(greedyCycleResults, "greedy_cycle_results.txt");
+    saveCycleToFile(greedyCycleBestPoints, "out/greedy_cycle1.txt", "out/greedy_cycle2.txt");
+    saveResultsToFile(greedyCycleResults, "out/greedy_cycle_results.txt");
 
     return 0;
 }
