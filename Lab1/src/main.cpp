@@ -39,10 +39,10 @@ vector<vector<int>> parseInput(const string& filename)
     return result;
 }
 
-void saveToFile(const vector<vector<int>>& points)
+void saveCycleToFile(const vector<vector<int>>& points, const string& fileName1, const string& fileName2)
 {
     ofstream file0;
-    file0.open("out0.txt");
+    file0.open(fileName1);
     for (size_t i = 0; i < points[0].size() - 1; ++i)
     {
         file0 << points[0][i] << "\t" << points[0][i + 1] << "\n";
@@ -51,13 +51,39 @@ void saveToFile(const vector<vector<int>>& points)
     file0.close();
 
     ofstream file1;
-    file1.open("out1.txt");
+    file1.open(fileName2);
     for (size_t i = 0; i < points[1].size() - 1; ++i)
     {
         file1 << points[1][i] << "\t" << points[1][i + 1] << "\n";
     }
     file1 << points[1][points[1].size() - 1] << "\t" << points[1][0];
     file1.close();
+}
+
+void saveResultsToFile(const vector<double>& greedyCycleResults, const string& fileName)
+{
+    double maximumGreedyCycle = 0.0;
+    double minimumGreedyCycle = 1000000000.0;
+    double sum = 0.0;
+    for (size_t i = 0; i < greedyCycleResults.size(); ++i)
+    {
+        if (greedyCycleResults[i] > maximumGreedyCycle)
+        {
+            maximumGreedyCycle = greedyCycleResults[i];
+        }
+        else if (greedyCycleResults[i] < minimumGreedyCycle)
+        {
+            minimumGreedyCycle = greedyCycleResults[i];
+        }
+        sum += greedyCycleResults[i];
+    }
+
+    ofstream file;
+    file.open(fileName);
+    file << "Minimum:" << "\t" << minimumGreedyCycle << "\n";
+    file << "Average:" << "\t" << sum / greedyCycleResults.size() << "\n";
+    file << "Maximum:" << "\t" << maximumGreedyCycle << "\n";
+    file.close();
 }
 
 double euclideanDistance(const vector<int>& p1, const vector<int>& p2)
@@ -100,12 +126,8 @@ int findClosestPoint(const vector<vector<double>>& distances, const vector<bool>
     return closestPoint;
 }
 
-vector<vector<int>> initializeCyclesPoints(const vector<vector<double>>& distances)
+vector<vector<int>> initializeCyclesPoints(const vector<vector<double>>& distances, int startingPoint)
 {
-    // Choose starting point
-    srand( time( NULL ) );
-    int startingPoint = rand() % distances.size();
-
     // Choose second point
     int secondPoint = findFurthestPoint(distances, vector<bool>(distances.size(), false), startingPoint);
 
@@ -156,10 +178,10 @@ void showCycles(const vector<vector<int>>& cycles)
     }
 }
 
-pair<vector<vector<int>>, double> greedyCycle(const vector<vector<double>>& distances)
+pair<vector<vector<int>>, double> greedyCycle(const vector<vector<double>>& distances, int startingPoint)
 {
     // Initialize cycles with first point in each
-    vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances);
+    vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances, startingPoint);
     vector<bool> taken = vector<bool>(distances.size(), false);
     taken[cyclesPoints[0][0]] = true;
     taken[cyclesPoints[1][0]] = true;
@@ -262,14 +284,25 @@ int main(int argc, char* argv[])
         }
     }
 
+    // Check every starting point
+    vector<double> greedyCycleResults = {};
+    vector<vector<int>> greedyCycleBestPoints = {};
+    double greedyCycleBest = 1000000000.0;
+    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
+    {
+        pair<vector<vector<int>>, double> greedyCycleResult = greedyCycle(distances, startingPoint);
 
-    pair<vector<vector<int>>, double> greedyCycleResult = greedyCycle(distances);
+        double score = greedyCycleResult.second;
+        greedyCycleResults.push_back(score);
+        if (score < greedyCycleBest)
+        {
+            greedyCycleBestPoints = greedyCycleResult.first;
+            greedyCycleBest = score;
+        }
+    }
 
-    double score = greedyCycleResult.second;
-    cout << "Wynik: " << score << "\n";
-
-    // Save results to file
-    saveToFile(greedyCycleResult.first);
+    saveCycleToFile(greedyCycleBestPoints, "greedy_cycle1.txt", "greedy_cycle2.txt");
+    saveResultsToFile(greedyCycleResults, "greedy_cycle_results.txt");
 
     return 0;
 }
