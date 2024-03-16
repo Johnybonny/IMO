@@ -369,6 +369,125 @@ pair<vector<vector<int>>, double> greedyCycle(const vector<vector<double>>& dist
     return {cyclesPoints, totalLength};
 }
 
+pair<pair<int, double>, double> computeRegret(vector<pair<int, double>>& costs)
+{
+    double lowestValue = 100000000000.0;
+    int lowestValuePlace = 0;
+    double secondLowestValue = 100000000000.0;
+    int secondLowestValuePlace = 0;
+
+    for (size_t i = 0; i < costs.size(); ++i)
+    {
+        if (costs[i].second < lowestValue)
+        {
+            secondLowestValue = lowestValue;
+            lowestValue = costs[i].second;
+            lowestValuePlace = costs[i].first;
+        }
+        else if (costs[i].second < secondLowestValue)
+        {
+            secondLowestValue = costs[i].second;
+        }
+    }
+
+    return {{lowestValuePlace, int(secondLowestValue - lowestValue)}, lowestValue};
+}
+
+pair<vector<vector<int>>, double> regretHeuristics(const vector<vector<double>>& distances, int startingPoint, double costWeight)
+{
+    // Initialize cycles with first point in each
+    vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances, startingPoint);
+    vector<bool> taken = vector<bool>(distances.size(), false);
+    taken[cyclesPoints[0][0]] = true;
+    taken[cyclesPoints[1][0]] = true;
+
+    // Start the cycles with second point for each previously generated point
+    int newPoint0 = findClosestPoint(distances, taken, cyclesPoints[0][0]);
+    cyclesPoints[0].push_back(newPoint0);
+    taken[newPoint0] = true;
+    int newPoint1 = findClosestPoint(distances, taken, cyclesPoints[1][0]);
+    cyclesPoints[1].push_back(newPoint1);
+    taken[newPoint1] = true;
+
+    // Initialize the cyclesLengths container
+    vector<vector<double>> cyclesLengths = computeCyclesLengths(cyclesPoints, distances);
+
+    while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+    {
+        // For each cycle
+        for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; ++cycleIndex)
+        {
+            if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+                break;
+
+            // Find new point with the highest regret to insert
+            double highestRegret = -100000000000000000000000.0; // TODO: Choose correct value
+            int bestPoint = 0;
+            int bestPlace = 0;
+            double lowestCost = 1000000.0;
+            vector<pair<pair<int, int>, double>> regretValues = {};
+            for (size_t point = 0; point < taken.size(); ++point)
+            {
+                if (taken[point])
+                    continue;
+
+                // Find place to insert the new point (after the place index)
+                vector<pair<int, double>> costs = {};
+                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); ++place)
+                {
+                    // Create new cyclePoints vector
+                    vector<int> newCyclePoints = cyclesPoints[cycleIndex];
+                    size_t indexToInsert = (place + 1) % (newCyclePoints.size() + 1);
+                    newCyclePoints.insert(newCyclePoints.begin() + indexToInsert, point);
+
+                    // Create new cycleLengths vector
+                    vector<double> newCycleLengths = cyclesLengths[cycleIndex];
+                    // Remove edge
+                    newCycleLengths.erase(newCycleLengths.begin() + place);
+                    // Insert first edge
+                    double valueToInsert = distances[point][newCyclePoints[(place + 2) % newCyclePoints.size()]];
+                    newCycleLengths.insert(newCycleLengths.begin() + place, valueToInsert);
+                    // Insert second edge
+                    valueToInsert = distances[newCyclePoints[place]][point];
+                    newCycleLengths.insert(newCycleLengths.begin() + place, valueToInsert);
+
+                    // Get the cost of inserting the point
+                    double insertCost = getCycleLength(newCycleLengths) - getCycleLength(cyclesLengths[cycleIndex]);
+                    costs.push_back({place, insertCost});
+                }
+
+                // Compute the regret update the highest regret
+                // regret = {{<where to insert>, <regret value>}, <cost of insertion>}
+                pair<pair<int, double>, double> regret = computeRegret(costs);
+                double weightedRegret = int(regret.first.second - costWeight * regret.second);
+                if ((weightedRegret > highestRegret)
+                    || (weightedRegret == highestRegret && regret.second < lowestCost))
+                {
+                    highestRegret = weightedRegret;
+                    bestPoint = point;
+                    bestPlace = regret.first.first;
+                    lowestCost = regret.second;
+                }
+            }
+
+            // Add chosen point to the cycle
+            size_t indexToInsert = (bestPlace + 1) % (cyclesPoints[cycleIndex].size() + 1);
+            cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + indexToInsert, bestPoint);
+            cyclesLengths[cycleIndex].erase(cyclesLengths[cycleIndex].begin() + bestPlace);
+            double valueToInsert = distances[bestPoint][cyclesPoints[cycleIndex][(bestPlace + 2) % cyclesPoints[cycleIndex].size()]];
+            cyclesLengths[cycleIndex].insert(cyclesLengths[cycleIndex].begin() + bestPlace, valueToInsert);
+            valueToInsert = distances[cyclesPoints[cycleIndex][bestPlace]][bestPoint];
+            cyclesLengths[cycleIndex].insert(cyclesLengths[cycleIndex].begin() + bestPlace, valueToInsert);
+
+            // Mark point as taken
+            taken[bestPoint] = true;
+        }
+    }
+
+    double totalLength = getCycleLength(cyclesLengths[0]) + getCycleLength(cyclesLengths[1]);
+    return {cyclesPoints, totalLength};
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)
@@ -392,11 +511,13 @@ int main(int argc, char* argv[])
     }
 
     // Nearest neighbor algorithm
+    cout << "Nearest neighbor\n";
     vector<double> nearestNeighborResults = {};
     vector<vector<int>> nearestNeighborBestPoints = {};
     double nearestNeighborBest = 1000000000.0;
     for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
     {
+        cout << startingPoint + 1 << "/100" << "\n";
         pair<vector<vector<int>>, double> nearestNeighborResult = nearestNeighbor(distances, startingPoint);
 
         double score = nearestNeighborResult.second;
@@ -409,15 +530,17 @@ int main(int argc, char* argv[])
     }
 
     // Save nearest neighbor results
-    saveCycleToFile(nearestNeighborBestPoints, "nearest_neighbor1.txt", "nearest_neighbor2.txt");
-    saveResultsToFile(nearestNeighborResults, "nearest_neighbor_results.txt");
+    saveCycleToFile(nearestNeighborBestPoints, "out/nearest_neighbor1.txt", "out/nearest_neighbor2.txt");
+    saveResultsToFile(nearestNeighborResults, "out/nearest_neighbor_results.txt");
 
     // Greedy cycle algorithm
+    cout << "Greedy cycle\n";
     vector<double> greedyCycleResults = {};
     vector<vector<int>> greedyCycleBestPoints = {};
     double greedyCycleBest = 1000000000.0;
     for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
     {
+        cout << startingPoint + 1 << "/100" << "\n";
         pair<vector<vector<int>>, double> greedyCycleResult = greedyCycle(distances, startingPoint);
 
         double score = greedyCycleResult.second;
@@ -432,6 +555,32 @@ int main(int argc, char* argv[])
     // Save greedy cycle results
     saveCycleToFile(greedyCycleBestPoints, "out/greedy_cycle1.txt", "out/greedy_cycle2.txt");
     saveResultsToFile(greedyCycleResults, "out/greedy_cycle_results.txt");
+
+    // Regret heuristics algorithm
+    cout << "Regret heuristics algorithm\n";
+    vector<double> regretHeuristicsResults = {};
+    vector<vector<int>> regretHeuristicsBestPoints = {};
+    double regretHeuristicsBest = 1000000000.0;
+    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
+    {
+        cout << startingPoint + 1 << "/100" << "\n";
+        for (double costWeight = 0.0; costWeight <= 1.0; costWeight = costWeight + 0.1)
+        {
+            pair<vector<vector<int>>, double> regretHeuristicsResult = regretHeuristics(distances, startingPoint, costWeight);
+
+            double score = regretHeuristicsResult.second;
+            regretHeuristicsResults.push_back(score);
+            if (score < regretHeuristicsBest)
+            {
+                regretHeuristicsBestPoints = regretHeuristicsResult.first;
+                regretHeuristicsBest = score;
+            }
+        }
+    }
+
+    // Save regret heuristics results
+    saveCycleToFile(regretHeuristicsBestPoints, "out/regret_heuristics1.txt", "out/regret_heuristics2.txt");
+    saveResultsToFile(regretHeuristicsResults, "out/regret_heuristics_results.txt");
 
     return 0;
 }

@@ -33,3 +33,6 @@
 
 # Python stuff
 venv/
+
+# vs code
+.vscode/settings.json
