@@ -392,16 +392,25 @@ int main(int argc, char* argv[])
     }
 
     // Nearest neighbor algorithm
-    pair<vector<vector<int>>, double> nearestNeighborResult = nearestNeighbor(distances, 10); // Random number for now
-    cout << "First cycle\tSecond cycle\n";
-    for (int i = 0; i < nearestNeighborResult.first[0].size(); ++i)
+    vector<double> nearestNeighborResults = {};
+    vector<vector<int>> nearestNeighborBestPoints = {};
+    double nearestNeighborBest = 1000000000.0;
+    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
     {
-        cout << nearestNeighborResult.first[0][i] << "\t\t" << nearestNeighborResult.first[1][i] << "\n";
-    }
-    cout << "Score: " << nearestNeighborResult.second << "\n";
+        pair<vector<vector<int>>, double> nearestNeighborResult = nearestNeighbor(distances, startingPoint);
 
-    if (true)
-        return 0;
+        double score = nearestNeighborResult.second;
+        nearestNeighborResults.push_back(score);
+        if (score < nearestNeighborBest)
+        {
+            nearestNeighborBestPoints = nearestNeighborResult.first;
+            nearestNeighborBest = score;
+        }
+    }
+
+    // Save nearest neighbor results
+    saveCycleToFile(nearestNeighborBestPoints, "nearest_neighbor1.txt", "nearest_neighbor2.txt");
+    saveResultsToFile(nearestNeighborResults, "nearest_neighbor_results.txt");
 
     // Greedy cycle algorithm
     vector<double> greedyCycleResults = {};
@@ -420,6 +429,7 @@ int main(int argc, char* argv[])
         }
     }
 
+    // Save greedy cycle results
     saveCycleToFile(greedyCycleBestPoints, "greedy_cycle1.txt", "greedy_cycle2.txt");
     saveResultsToFile(greedyCycleResults, "greedy_cycle_results.txt");
 
