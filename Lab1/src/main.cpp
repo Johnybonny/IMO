@@ -155,13 +155,24 @@ vector<vector<double>> computeCyclesLengths(const vector<vector<int>>& cycles, c
     return lengths;
 }
 
-double getCycleLength(vector<double>& lengths)
+double getCycleLength(const vector<double>& lengths)
 {
     double sum = 0.0;
     for (size_t i = 0; i < lengths.size(); ++i)
     {
         sum += lengths[i];
     }
+    return sum;
+}
+
+double getLengthBasedOnPoints(const vector<int>& points, const vector<vector<double>>& distances)
+{
+    double sum = 0.0;
+    for (size_t i = 0; i < points.size() - 1; ++i)
+    {
+        sum += distances[points[i]][points[i + 1]];
+    }
+    sum += distances[points[points.size() - 1]][points[0]];
     return sum;
 }
 
@@ -176,6 +187,102 @@ void showCycles(const vector<vector<int>>& cycles)
             cout << "\t\t" << cycles[1][j];
         cout << "\n";
     }
+}
+
+pair<vector<vector<int>>, double> nearestNeighbor(const vector<vector<double>>& distances, int startingPoint)
+{
+    // Initialize cycles with first point in each
+    vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances, startingPoint);
+    vector<bool> taken = vector<bool>(distances.size(), false);
+    taken[cyclesPoints[0][0]] = true;
+    taken[cyclesPoints[1][0]] = true;
+
+    // Start the cycles with second point for each previously generated point
+    int newPoint0 = findClosestPoint(distances, taken, cyclesPoints[0][0]);
+    cyclesPoints[0].push_back(newPoint0);
+    taken[newPoint0] = true;
+    int newPoint1 = findClosestPoint(distances, taken, cyclesPoints[1][0]);
+    cyclesPoints[1].push_back(newPoint1);
+    taken[newPoint1] = true;
+
+    while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+    {
+        // For each cycle
+        for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; ++cycleIndex)
+        {
+            if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+                break;
+
+            // Find a new point to create a path to from all points in cycle
+            int bestPointFrom = 0;
+            int bestPointFromIndex = 0;
+            int bestPointTo = 0;
+            double closestDistance = 1000000000.0;
+            for (size_t point = 0; point < cyclesPoints[cycleIndex].size(); ++point)
+            {
+                // Look for point closest to the one in cycle
+                for (size_t freePoint = 0; freePoint < taken.size(); ++freePoint)
+                {
+                    if (taken[freePoint])
+                        continue;
+
+                    if (distances[cyclesPoints[cycleIndex][point]][freePoint] < closestDistance)
+                    {
+                        closestDistance = distances[cyclesPoints[cycleIndex][point]][freePoint];
+                        bestPointFrom = cyclesPoints[cycleIndex][point];
+                        bestPointFromIndex = point;
+                        bestPointTo = freePoint;
+                    }
+                }
+            }
+
+            // Decide wheter to put the point before or after the chosen cycle point
+            if (bestPointFromIndex == 0)
+            {
+                double addBeforeCost = distances[bestPointFrom][bestPointTo];
+                double addAfterCost = distances[bestPointFrom][bestPointTo]
+                    + distances[cyclesPoints[cycleIndex][1]][bestPointTo]
+                    - distances[bestPointFrom][cyclesPoints[cycleIndex][1]];
+
+                if (addBeforeCost < addAfterCost)
+                    cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + 0, bestPointTo);
+                else
+                    cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + 1, bestPointTo);
+            }
+            else if (bestPointFromIndex == cyclesPoints[cycleIndex].size() - 1)
+            {
+                double addBeforeCost = distances[bestPointFrom][bestPointTo]
+                    + distances[cyclesPoints[cycleIndex][cyclesPoints[cycleIndex].size() - 2]][bestPointTo]
+                    - distances[bestPointFrom][cyclesPoints[cycleIndex][cyclesPoints[cycleIndex].size() - 2]];
+                double addAfterCost = distances[bestPointFrom][bestPointTo];
+
+                if (addBeforeCost < addAfterCost)
+                    cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].end() - 1, bestPointTo);
+                else
+                    cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].end() + 0, bestPointTo);
+            }
+            else
+            {
+                double addBeforeCost = distances[bestPointFrom][bestPointTo]
+                    + distances[cyclesPoints[cycleIndex][bestPointFromIndex - 1]][bestPointTo]
+                    - distances[bestPointFrom][cyclesPoints[cycleIndex][bestPointFromIndex - 1]];
+                double addAfterCost = distances[bestPointFrom][bestPointTo]
+                    + distances[cyclesPoints[cycleIndex][bestPointFromIndex + 1]][bestPointTo]
+                    - distances[bestPointFrom][cyclesPoints[cycleIndex][bestPointFromIndex + 1]];
+
+                if (addBeforeCost < addAfterCost)
+                    cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + bestPointFromIndex, bestPointTo);
+                else
+                    cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + bestPointFromIndex + 1, bestPointTo);
+            }
+
+            // Mark point as taken
+            taken[bestPointTo] = true;
+        }
+    }
+
+    double totalLength = getLengthBasedOnPoints(cyclesPoints[0], distances) + getLengthBasedOnPoints(cyclesPoints[1], distances);
+    return {cyclesPoints, totalLength};
 }
 
 pair<vector<vector<int>>, double> greedyCycle(const vector<vector<double>>& distances, int startingPoint)
@@ -284,7 +391,28 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Check every starting point
+    // Nearest neighbor algorithm
+    vector<double> nearestNeighborResults = {};
+    vector<vector<int>> nearestNeighborBestPoints = {};
+    double nearestNeighborBest = 1000000000.0;
+    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
+    {
+        pair<vector<vector<int>>, double> nearestNeighborResult = nearestNeighbor(distances, startingPoint);
+
+        double score = nearestNeighborResult.second;
+        nearestNeighborResults.push_back(score);
+        if (score < nearestNeighborBest)
+        {
+            nearestNeighborBestPoints = nearestNeighborResult.first;
+            nearestNeighborBest = score;
+        }
+    }
+
+    // Save nearest neighbor results
+    saveCycleToFile(nearestNeighborBestPoints, "nearest_neighbor1.txt", "nearest_neighbor2.txt");
+    saveResultsToFile(nearestNeighborResults, "nearest_neighbor_results.txt");
+
+    // Greedy cycle algorithm
     vector<double> greedyCycleResults = {};
     vector<vector<int>> greedyCycleBestPoints = {};
     double greedyCycleBest = 1000000000.0;
@@ -301,6 +429,7 @@ int main(int argc, char* argv[])
         }
     }
 
+    // Save greedy cycle results
     saveCycleToFile(greedyCycleBestPoints, "out/greedy_cycle1.txt", "out/greedy_cycle2.txt");
     saveResultsToFile(greedyCycleResults, "out/greedy_cycle_results.txt");
 
