@@ -156,28 +156,8 @@ void showCycles(const vector<vector<int>>& cycles)
     }
 }
 
-int main(int argc, char* argv[])
+pair<vector<vector<int>>, double> greedyCycle(const vector<vector<double>>& distances)
 {
-    if (argc != 2)
-    {
-        cerr << "Usage: " << argv[0] << " <input_filename>" << endl;
-        return 1;
-    }
-
-    string filename = argv[1];
-    vector<vector<int>> parsedData = parseInput(filename);
-
-    // Calculate Euclidean distances between each pair of vectors
-    vector<vector<double>> distances(parsedData.size(), vector<double>(parsedData.size(), 0.0));
-    for (size_t i = 0; i < parsedData.size(); ++i)
-    {
-        for (size_t j = i + 1; j < parsedData.size(); ++j)
-        {
-            double dist = euclideanDistance(parsedData[i], parsedData[j]);
-            distances[i][j] = distances[j][i] = dist;
-        }
-    }
-
     // Initialize cycles with first point in each
     vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances);
     vector<bool> taken = vector<bool>(distances.size(), false);
@@ -256,11 +236,40 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Display cycles
-    showCycles(cyclesPoints);
+    double totalLength = getCycleLength(cyclesLengths[0]) + getCycleLength(cyclesLengths[1]);
+    return {cyclesPoints, totalLength};
+}
+
+int main(int argc, char* argv[])
+{
+    if (argc != 2)
+    {
+        cerr << "Usage: " << argv[0] << " <input_filename>" << endl;
+        return 1;
+    }
+
+    string filename = argv[1];
+    vector<vector<int>> parsedData = parseInput(filename);
+
+    // Calculate Euclidean distances between each pair of vectors
+    vector<vector<double>> distances(parsedData.size(), vector<double>(parsedData.size(), 0.0));
+    for (size_t i = 0; i < parsedData.size(); ++i)
+    {
+        for (size_t j = i + 1; j < parsedData.size(); ++j)
+        {
+            double dist = euclideanDistance(parsedData[i], parsedData[j]);
+            distances[i][j] = distances[j][i] = dist;
+        }
+    }
+
+
+    pair<vector<vector<int>>, double> greedyCycleResult = greedyCycle(distances);
+
+    double score = greedyCycleResult.second;
+    cout << "Wynik: " << score << "\n";
 
     // Save results to file
-    saveToFile(cyclesPoints);
+    saveToFile(greedyCycleResult.first);
 
     return 0;
 }
