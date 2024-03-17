@@ -10,7 +10,7 @@ W ramach zadania należało przeprowadzić badania dotyczące trzech algorytmów
 2. Metoda rozbudowy cyklu (greedy cycle)
 3. Heurystyka zachłanna oparta na żalu (regret heuristics)
 
-na przykładzie zmodyfikowanego problemu komiwojażera. W problemie należy dla danego zbioru wierzchołków oraz symetrycznej macierzy odległości ułożyć dwa rozłączne cykle, z których każdy zawiera 50% wierzchołków. Celem jest minimalizacja łącznej długości obu cykli. 
+na przykładzie zmodyfikowanego problemu komiwojażera. W problemie należy dla danego zbioru wierzchołków oraz symetrycznej macierzy odległości ułożyć dwa rozłączne cykle, z których każdy zawiera 50% wierzchołków. Celem jest minimalizacja łącznej długości obu cykli.
 
 W pracy rozważane są dwie instancje - `kroA100` oraz `kroB100` pochodzące z biblioteki `TSPLib`[1]. Odległości pomiędzy wierzchołkami obliczone zostały jako odległości euklidesowe oraz zaokrąglone matematycznie.
 
@@ -21,24 +21,54 @@ https://github.com/Johnybonny/IMO
 
 ## Opis algorytmów
 
-Wszystkie z podanych poniżej algorytmów akceptują na wejściu macierz odległości pomiędzy danymi wierzchołkami. 
+Wszystkie z podanych poniżej algorytmów akceptują na wejściu macierz odległości pomiędzy danymi wierzchołkami.
+Zmienne użyte w każdym z algorytmów:
+- taken - wektor wartości oznaczających czy wierzchołek na danej pozycji należy do któregoś z cykli,
+- cyclesPoints - wektor zawierający cykle, cyclesPoints[i] - wektor wierzchołków w i-tym cyklu,
 
 ### Algorytm Nearest Neighbor
 
 ```
-Pseudokod programu
+dopóki jakakolwiek wartość z taken jest false
+    dla każdego cycklu w cyclesPoints
+        dla każego wierzchołka w cyklu
+            dla każdego wolnego punkt z taken
+                oblicz odległość pomiędzy wierzchołkiem a punktem
+                jeżeli odległość jest najmniejsza z dotychczasowych odległości, to zapamiętaj ten wierzchołek oraz punkt
+        oblicz koszty wstawienia nowego punktu przed oraz po wierzchołku należącym do cyklu
+        wstaw nowy punkt w miejsce w cyklu, które spowoduje mniejszy wzrost długości cyklu
+        oznacz punkt jako wykorzystany w taken
+wierzchołki należące do każdego z cykli znajdują się w cyclesPoints
 ```
 
 ### Algorytm Greedy Cycle
 
 ```
-Pseudokod programu
+dopóki jakakolwiek wartość z taken jest false
+    dla każdego cycklu w cyclesPoints
+        dla każego wierzchołka w cyklu
+            dla każdego wolnego punkt z taken
+                oblicz koszt dodania tego punktu pomiędzy rozpatrywanym wierzchołkiem a następnym
+                jeżeli koszt jest najmniejszy z dotychczasowych kosztów, to zapamiętaj ten wierzchołek oraz punkt
+        wstaw nowy punkt do cyklu za zapamiętanym wierzchołkiem
+        oznacz punkt jako wykorzystany w taken
+wierzchołki należące do każdego z cykli znajdują się w cyclesPoints
 ```
 
 ### Algorytm 2-regret
 
 ```
-Pseudokod programu
+dopóki jakakolwiek wartość z taken jest false
+    dla każdego cycklu w cyclesPoints
+        dla każego wierzchołka w cyklu
+            dla każdego wolnego punkt z taken
+                oblicz koszt dodania tego punktu pomiędzy rozpatrywanym wierzchołkiem a następnym i zapisz go do wektora kosztów
+            oblicz żal dla wartości z wektora kosztów
+            pomniejsz go o najmniejszy koszt pomnożony przez wagę
+            jeżeli otrzymana wartość jest większa niż dotychczasowe, to zapamiętaj ten wierzchołek oraz punkt, dla którego ta wartość została osiągnięta
+        wstaw nowy punkt do cyklu za zapamiętanym wierzchołkiem
+        oznacz punkt jako wykorzystany w taken
+wierzchołki należące do każdego z cykli znajdują się w cyclesPoints
 ```
 
 ## Wyniki
