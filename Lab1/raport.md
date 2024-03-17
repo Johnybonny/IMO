@@ -113,7 +113,7 @@ Każdy algorytm uruchomiony został 100 razy - dla każdego wierzchołka, który
   <tr>
     <th class="tg-0pky"></th>
     <th class="tg-c3ow" colspan="3">kroA100</th>
-    <th class="tg-c3ow" colspan="3">kroaB</th>
+    <th class="tg-c3ow" colspan="3">kroB100</th>
   </tr>
 </thead>
 <tbody>
