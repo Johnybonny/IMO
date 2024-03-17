@@ -24,7 +24,7 @@ def read_connections(filename):
             connections.append((vertex1, vertex2))
     return connections
 
-def draw_map(vertices, connections1, connections2, map_filename, color1='b', color2='r'):
+def draw_map(vertices, connections1, connections2, map_filename, title='', color1='b', color2='r'):
     fig, ax = plt.subplots()
     
     # Plot vertices
@@ -49,20 +49,21 @@ def draw_map(vertices, connections1, connections2, map_filename, color1='b', col
     ax.set_aspect('equal', adjustable='box')
     plt.xlabel('X')
     plt.ylabel('Y')
-    plt.title('Map with Vertices and Connections')
+    plt.title(title)
     plt.grid(True)
     plt.savefig(map_filename, dpi=300)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process vertex file')
     parser.add_argument('vertex_file', type=str, help='Path to the vertex file')
+    parser.add_argument('algorithm', type=str, help='Type of algorithm', choices=['greedy_cycle', 'nearest_neighbor', 'regret_heuristics'])
     args = parser.parse_args()
-    vertex_file = args.vertex_file
-    connection_file1 = f"out/greedy_cycle1.txt"
-    connection_file2 = f"out/greedy_cycle2.txt"
+    instance = args.vertex_file.split('.')[0].split('/')[1]
+    connection_file1 = f"out/{instance}_{args.algorithm}1.txt"
+    connection_file2 = f"out/{instance}_{args.algorithm}2.txt"
 
-    vertices = read_vertex_coordinates(vertex_file)
+    vertices = read_vertex_coordinates(args.vertex_file)
     connections1 = read_connections(connection_file1)
     connections2 = read_connections(connection_file2)
 
-    draw_map(vertices, connections1, connections2, map_filename=f"out/map_greedy_{vertex_file.split('.')[0].split('/')[1]}.png", color1='b', color2='r')
+    draw_map(vertices, connections1, connections2, map_filename=f"out/{instance}_map_{args.algorithm}.png", title=f"Instance: {instance}, Algorithm: {args.algorithm}", color1='b', color2='r')

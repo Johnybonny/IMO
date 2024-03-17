@@ -497,6 +497,8 @@ int main(int argc, char* argv[])
     }
 
     string filename = argv[1];
+    string filenameStripped = filename.substr(filename.find_last_of('/') + 1);
+    filenameStripped = filenameStripped.substr(0, filenameStripped.find_last_of('.'));
     vector<vector<int>> parsedData = parseInput(filename);
 
     // Calculate Euclidean distances between each pair of vectors
@@ -530,8 +532,8 @@ int main(int argc, char* argv[])
     }
 
     // Save nearest neighbor results
-    saveCycleToFile(nearestNeighborBestPoints, "out/nearest_neighbor1.txt", "out/nearest_neighbor2.txt");
-    saveResultsToFile(nearestNeighborResults, "out/nearest_neighbor_results.txt");
+    saveCycleToFile(nearestNeighborBestPoints, "out/" + filenameStripped + "_nearest_neighbor1.txt", "out/" + filenameStripped + "_nearest_neighbor2.txt");
+    saveResultsToFile(nearestNeighborResults, "out/" + filenameStripped + "_nearest_neighbor_results.txt");
 
     // Greedy cycle algorithm
     cout << "Greedy cycle\n";
@@ -553,8 +555,8 @@ int main(int argc, char* argv[])
     }
 
     // Save greedy cycle results
-    saveCycleToFile(greedyCycleBestPoints, "out/greedy_cycle1.txt", "out/greedy_cycle2.txt");
-    saveResultsToFile(greedyCycleResults, "out/greedy_cycle_results.txt");
+    saveCycleToFile(greedyCycleBestPoints, "out/" + filenameStripped + "_greedy_cycle1.txt", "out/" + filenameStripped + "_greedy_cycle2.txt");
+    saveResultsToFile(greedyCycleResults, "out/" + filenameStripped + "_greedy_cycle_results.txt");
 
     // Regret heuristics algorithm
     cout << "Regret heuristics algorithm\n";
@@ -579,8 +581,8 @@ int main(int argc, char* argv[])
     }
 
     // Save regret heuristics results
-    saveCycleToFile(regretHeuristicsBestPoints, "out/regret_heuristics1.txt", "out/regret_heuristics2.txt");
-    saveResultsToFile(regretHeuristicsResults, "out/regret_heuristics_results.txt");
+    saveCycleToFile(regretHeuristicsBestPoints, "out/" + filenameStripped + "_regret_heuristics1.txt", "out/" + filenameStripped + "_regret_heuristics2.txt");
+    saveResultsToFile(regretHeuristicsResults, "out/" + filenameStripped + "_regret_heuristics_results.txt");
 
     return 0;
 }
