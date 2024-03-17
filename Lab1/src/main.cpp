@@ -92,12 +92,12 @@ void saveRegretResultsToFile(const vector<vector<int>>& results, const string& f
     ofstream file;
     file.open(fileName);
     file << "Weight\tMinimum\tAverage\tMaximum\n";
-    int maximumCycle = 0;
-    int minimumCycle = BIG_M;
     double costWeight = 0.0;
     for (size_t i = 0; i < results.size(); ++i)
     {
-        int sum = 0;
+        int sum = 0;    
+        int maximumCycle = 0;
+        int minimumCycle = BIG_M;
         for (size_t j = 0; j < results[i].size(); ++j)
         {
             if (results[i][j] > maximumCycle)
