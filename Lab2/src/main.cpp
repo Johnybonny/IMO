@@ -64,7 +64,7 @@ void saveCycleToFile(const vector<vector<int>>& points, const string& fileName1,
 {
     ofstream file0;
     file0.open(fileName1);
-    for (size_t i = 0; i < points[0].size() - 1; ++i)
+    for (size_t i = 0; i < points[0].size() - 1; i++)
     {
         file0 << points[0][i] << "\t" << points[0][i + 1] << "\n";
     }
@@ -73,7 +73,7 @@ void saveCycleToFile(const vector<vector<int>>& points, const string& fileName1,
 
     ofstream file1;
     file1.open(fileName2);
-    for (size_t i = 0; i < points[1].size() - 1; ++i)
+    for (size_t i = 0; i < points[1].size() - 1; i++)
     {
         file1 << points[1][i] << "\t" << points[1][i + 1] << "\n";
     }
@@ -86,7 +86,7 @@ void saveResultsToFile(const vector<int>& results, const string& fileName)
     int maximumCycle = 0;
     int minimumCycle = BIG_M;
     int sum = 0;
-    for (size_t i = 0; i < results.size(); ++i)
+    for (size_t i = 0; i < results.size(); i++)
     {
         if (results[i] > maximumCycle)
         {
@@ -110,7 +110,7 @@ void saveResultsToFile(const vector<int>& results, const string& fileName)
 int euclideanDistance(const vector<int>& p1, const vector<int>& p2)
 {
     double sum = 0.0;
-    for (size_t i = 0; i < p1.size(); ++i)
+    for (size_t i = 0; i < p1.size(); i++)
     {
         sum += pow(p1[i] - p2[i], 2);
     }
@@ -121,7 +121,7 @@ int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& 
 {
     int maximumDistance = distances[point][point];
     int furthestPoint = point;
-    for (size_t j = 0; j < distances[point].size(); ++j)
+    for (size_t j = 0; j < distances[point].size(); j++)
     {
         if ((distances[point][j] > maximumDistance) && !taken[j])
         {
@@ -136,7 +136,7 @@ int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& t
 {
     int minimumDistance = BIG_M;
     int closestPoint = point;
-    for (size_t j = 0; j < distances[point].size(); ++j)
+    for (size_t j = 0; j < distances[point].size(); j++)
     {
         if ((distances[point][j] < minimumDistance) && !taken[j])
         {
@@ -159,7 +159,7 @@ vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances,
 int getLengthBasedOnPoints(const vector<int>& points, const vector<vector<int>>& distances)
 {
     int sum = 0;
-    for (size_t i = 0; i < points.size() - 1; ++i)
+    for (size_t i = 0; i < points.size() - 1; i++)
     {
         sum += distances[points[i]][points[i + 1]];
     }
@@ -170,7 +170,7 @@ int getLengthBasedOnPoints(const vector<int>& points, const vector<vector<int>>&
 void showCycles(const vector<vector<int>>& cycles)
 {
     cout << "First cycle\tSecond cycle\n";
-    for (size_t j = 0; j < cycles[0].size(); ++j)
+    for (size_t j = 0; j < cycles[0].size(); j++)
     {
         if (cycles[0].size() > j)
             cout << cycles[0][j];
@@ -187,7 +187,7 @@ pair<pair<int, int>, int> computeRegret(vector<pair<int, int>>& costs)
     int secondLowestValue = BIG_M;
     int secondLowestValuePlace = 0;
 
-    for (size_t i = 0; i < costs.size(); ++i)
+    for (size_t i = 0; i < costs.size(); i++)
     {
         if (costs[i].second < lowestValue)
         {
@@ -223,7 +223,7 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
     while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
     {
         // For each cycle
-        for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; ++cycleIndex)
+        for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
         {
             if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
                 break;
@@ -234,14 +234,14 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
             int bestPlace = 0;
             int lowestCost = BIG_M;
             vector<pair<pair<int, int>, int>> regretValues = {};
-            for (size_t point = 0; point < taken.size(); ++point)
+            for (size_t point = 0; point < taken.size(); point++)
             {
                 if (taken[point])
                     continue;
 
                 // Find place to insert the new point (after the place index)
                 vector<pair<int, int>> costs = {};
-                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); ++place)
+                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); place++)
                 {
                     // Get the cost of inserting the point
                     int pointBefore = cyclesPoints[cycleIndex][place];
@@ -286,7 +286,7 @@ vector<vector<int>> regretCycle(const vector<vector<int>>& distances)
 {
     vector<vector<int>> regretHeuristicsPoints = {};
     int regretHeuristicsBest = BIG_M;
-    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
+    for (int startingPoint = 0; startingPoint < distances.size(); startingPoint++)
     {
         pair<vector<vector<int>>, int> regretHeuristicsResult = regretHeuristics(distances, startingPoint, COST_WEIGHT);
 
@@ -343,9 +343,9 @@ int main(int argc, char* argv[])
 
     // Calculate Euclidean distances between each pair of vectors
     vector<vector<int>> distances(parsedData.size(), vector<int>(parsedData.size(), 0.0));
-    for (size_t i = 0; i < parsedData.size(); ++i)
+    for (size_t i = 0; i < parsedData.size(); i++)
     {
-        for (size_t j = i + 1; j < parsedData.size(); ++j)
+        for (size_t j = i + 1; j < parsedData.size(); j++)
         {
             int dist = euclideanDistance(parsedData[i], parsedData[j]);
             distances[i][j] = distances[j][i] = dist;
