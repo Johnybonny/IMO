@@ -3,7 +3,9 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <sstream>
+#include <ctime>
 #include <vector>
 
 #define NUM_OF_CYCLES 2
@@ -15,14 +17,13 @@ using namespace std;
 void progressBar(double progress)
 {
     cout << "[";
-    int full = 100;
     for (int i = 0; i < progress; i++)
     {
         if (i % 10 == 0)
             cout << "=";
     }
     cout << ">";
-    for (int i = progress; i < full; i++)
+    for (int i = progress; i < 100; i++)
     {
         if (i % 10 == 0)
             cout << " ";
@@ -281,11 +282,57 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
     return {cyclesPoints, totalLength};
 }
 
+vector<vector<int>> regretCycle(const vector<vector<int>>& distances)
+{
+    vector<vector<int>> regretHeuristicsPoints = {};
+    int regretHeuristicsBest = BIG_M;
+    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
+    {
+        pair<vector<vector<int>>, int> regretHeuristicsResult = regretHeuristics(distances, startingPoint, COST_WEIGHT);
+
+        int score = regretHeuristicsResult.second;
+        if (score < regretHeuristicsBest)
+        {
+            regretHeuristicsPoints = regretHeuristicsResult.first;
+            regretHeuristicsBest = score;
+        }
+    }
+    return regretHeuristicsPoints;
+}
+
+vector<vector<int>> randomCycle(const vector<vector<int>>& distances)
+{
+    vector<vector<int>> cyclesPoints = {{}, {}};
+    vector<int> freePoints = {};
+
+    for (int i = 0; i < distances.size(); i++)
+    {
+        freePoints.push_back(i);
+    }
+
+    srand(time(NULL));
+    while (freePoints.size() != 0)
+    {
+        for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+        {
+            if(freePoints.size() == 0)
+                break;
+
+            int randomIndex = rand() % freePoints.size();
+            cyclesPoints[cycleIndex].push_back(freePoints[randomIndex]);
+            freePoints.erase(freePoints.begin() + randomIndex);
+        }
+    }
+
+    return cyclesPoints;
+}
+
 int main(int argc, char* argv[])
 {
-    if (argc != 2)
+    if (argc != 5)
     {
-        cerr << "Usage: " << argv[0] << " <input_filename>" << endl;
+        cerr << "Usage: " << argv[0] << " <input_filename> <random|regret> <steepest|greedy>";
+        cerr << " <vertices|edges>" << endl;
         return 1;
     }
 
@@ -305,24 +352,22 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Regret heuristics algorithm
-    cout << "Regret heuristics algorithm\n";
-    vector<vector<int>> regretHeuristicsResults = {};
-    vector<vector<int>> regretHeuristicsBestPoints = {};
-    int regretHeuristicsBest = BIG_M;
-    regretHeuristicsResults.push_back({});
-    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
-    {
-        progressBar(startingPoint);
-        pair<vector<vector<int>>, int> regretHeuristicsResult = regretHeuristics(distances, startingPoint, COST_WEIGHT);
 
-        int score = regretHeuristicsResult.second;
-        regretHeuristicsResults[regretHeuristicsResults.size() - 1].push_back(score);
-        if (score < regretHeuristicsBest)
-        {
-            regretHeuristicsBestPoints = regretHeuristicsResult.first;
-            regretHeuristicsBest = score;
-        }
+    // Generate initial cycles
+    cout << "Generating initial cycles...\n";
+    vector<vector<int>> cyclesPoints = {};
+    if (string(argv[2]) == "regret")
+    {
+        cyclesPoints = regretCycle(distances);
+    }
+    else if (string(argv[2]) == "random")
+    {
+        cyclesPoints = randomCycle(distances);
+    }
+    else
+    {
+        cerr << argv[2] << " can be 'random' or 'regret'" << endl;
+        return 1;
     }
 
     return 0;
