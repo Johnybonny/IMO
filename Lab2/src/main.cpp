@@ -8,8 +8,27 @@
 
 #define NUM_OF_CYCLES 2
 #define BIG_M 1000000000
+#define COST_WEIGHT 0.6
 
 using namespace std;
+
+void progressBar(double progress)
+{
+    cout << "[";
+    int full = 100;
+    for (int i = 0; i < progress; i++)
+    {
+        if (i % 10 == 0)
+            cout << "=";
+    }
+    cout << ">";
+    for (int i = progress; i < full; i++)
+    {
+        if (i % 10 == 0)
+            cout << " ";
+    }
+    cout << "]\n";
+}
 
 vector<vector<int>> parseInput(const string& filename)
 {
@@ -136,33 +155,14 @@ vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances,
     return initializedCycles;
 }
 
-vector<vector<int>> computeCyclesLengths(const vector<vector<int>>& cycles, const vector<vector<int>>& distances)
-{
-    vector<vector<int>> lengths = {vector<int> {}, vector<int> {}};
-    // First cycle
-    for (size_t i = 0; i < cycles[0].size() - 1; ++i)
-    {
-        lengths[0].push_back(distances[cycles[0][i]][cycles[0][i + 1]]);
-    }
-    lengths[0].push_back(distances[cycles[0][cycles[0].size() - 1]][cycles[0][0]]);
-
-    // Second cycle
-    for (size_t i = 0; i < cycles[1].size() - 1; ++i)
-    {
-        lengths[1].push_back(distances[cycles[1][i]][cycles[1][i + 1]]);
-    }
-    lengths[1].push_back(distances[cycles[1][cycles[1].size() - 1]][cycles[1][0]]);
-
-    return lengths;
-}
-
-int getCycleLength(const vector<int>& lengths)
+int getLengthBasedOnPoints(const vector<int>& points, const vector<vector<int>>& distances)
 {
     int sum = 0;
-    for (size_t i = 0; i < lengths.size(); ++i)
+    for (size_t i = 0; i < points.size() - 1; ++i)
     {
-        sum += lengths[i];
+        sum += distances[points[i]][points[i + 1]];
     }
+    sum += distances[points[points.size() - 1]][points[0]];
     return sum;
 }
 
@@ -219,9 +219,6 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
     cyclesPoints[1].push_back(newPoint1);
     taken[newPoint1] = true;
 
-    // Initialize the cyclesLengths container
-    vector<vector<int>> cyclesLengths = computeCyclesLengths(cyclesPoints, distances);
-
     while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
     {
         // For each cycle
@@ -245,31 +242,20 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
                 vector<pair<int, int>> costs = {};
                 for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); ++place)
                 {
-                    // Create new cyclePoints vector
-                    vector<int> newCyclePoints = cyclesPoints[cycleIndex];
-                    size_t indexToInsert = (place + 1) % (newCyclePoints.size() + 1);
-                    newCyclePoints.insert(newCyclePoints.begin() + indexToInsert, point);
-
-                    // Create new cycleLengths vector
-                    vector<int> newCycleLengths = cyclesLengths[cycleIndex];
-                    // Remove edge
-                    newCycleLengths.erase(newCycleLengths.begin() + place);
-                    // Insert first edge
-                    int valueToInsert = distances[point][newCyclePoints[(place + 2) % newCyclePoints.size()]];
-                    newCycleLengths.insert(newCycleLengths.begin() + place, valueToInsert);
-                    // Insert second edge
-                    valueToInsert = distances[newCyclePoints[place]][point];
-                    newCycleLengths.insert(newCycleLengths.begin() + place, valueToInsert);
-
                     // Get the cost of inserting the point
-                    int insertCost = getCycleLength(newCycleLengths) - getCycleLength(cyclesLengths[cycleIndex]);
+                    int pointBefore = cyclesPoints[cycleIndex][place];
+                    int pointAfter = cyclesPoints[cycleIndex][(place + 1) % cyclesPoints[cycleIndex].size()];
+                    int insertCost = distances[pointBefore][point]
+                        + distances[point][pointAfter]
+                        - distances[pointBefore][pointAfter];
+
                     costs.push_back({place, insertCost});
                 }
 
                 // Compute the regret update the highest regret
                 // regret = {{<where to insert>, <regret value>}, <cost of insertion>}
                 pair<pair<int, int>, int> regret = computeRegret(costs);
-                int weightedRegret = int(regret.first.second  - costWeight * regret.second);
+                int weightedRegret = regret.first.second  - int(costWeight * regret.second);
                 if ((weightedRegret > highestRegret)
                     || (weightedRegret == highestRegret && regret.second < lowestCost))
                 {
@@ -283,18 +269,15 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
             // Add chosen point to the cycle
             size_t indexToInsert = (bestPlace + 1) % (cyclesPoints[cycleIndex].size() + 1);
             cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + indexToInsert, bestPoint);
-            cyclesLengths[cycleIndex].erase(cyclesLengths[cycleIndex].begin() + bestPlace);
-            int valueToInsert = distances[bestPoint][cyclesPoints[cycleIndex][(bestPlace + 2) % cyclesPoints[cycleIndex].size()]];
-            cyclesLengths[cycleIndex].insert(cyclesLengths[cycleIndex].begin() + bestPlace, valueToInsert);
-            valueToInsert = distances[cyclesPoints[cycleIndex][bestPlace]][bestPoint];
-            cyclesLengths[cycleIndex].insert(cyclesLengths[cycleIndex].begin() + bestPlace, valueToInsert);
 
             // Mark point as taken
             taken[bestPoint] = true;
         }
     }
 
-    int totalLength = getCycleLength(cyclesLengths[0]) + getCycleLength(cyclesLengths[1]);
+    int totalLength = getLengthBasedOnPoints(cyclesPoints[0], distances)
+        + getLengthBasedOnPoints(cyclesPoints[1], distances);
+
     return {cyclesPoints, totalLength};
 }
 
@@ -327,25 +310,20 @@ int main(int argc, char* argv[])
     vector<vector<int>> regretHeuristicsResults = {};
     vector<vector<int>> regretHeuristicsBestPoints = {};
     int regretHeuristicsBest = BIG_M;
-    for (double costWeight = 0.0; costWeight <= 1.0; costWeight = costWeight + 0.1)
+    regretHeuristicsResults.push_back({});
+    for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
     {
-        regretHeuristicsResults.push_back({});
-        cout << int((costWeight) * 100) << "%" << "\n";
-        for (int startingPoint = 0; startingPoint < distances.size(); ++startingPoint)
-        {
-            pair<vector<vector<int>>, int> regretHeuristicsResult = regretHeuristics(distances, startingPoint, costWeight);
+        progressBar(startingPoint);
+        pair<vector<vector<int>>, int> regretHeuristicsResult = regretHeuristics(distances, startingPoint, COST_WEIGHT);
 
-            int score = regretHeuristicsResult.second;
-            regretHeuristicsResults[regretHeuristicsResults.size() - 1].push_back(score);
-            if (score < regretHeuristicsBest)
-            {
-                regretHeuristicsBestPoints = regretHeuristicsResult.first;
-                regretHeuristicsBest = score;
-            }
+        int score = regretHeuristicsResult.second;
+        regretHeuristicsResults[regretHeuristicsResults.size() - 1].push_back(score);
+        if (score < regretHeuristicsBest)
+        {
+            regretHeuristicsBestPoints = regretHeuristicsResult.first;
+            regretHeuristicsBest = score;
         }
     }
-
-    showCycles(regretHeuristicsBestPoints);
 
     return 0;
 }
