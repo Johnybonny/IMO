@@ -169,13 +169,13 @@ int getLengthBasedOnPoints(const vector<int>& points, const vector<vector<int>>&
 
 void showCycles(const vector<vector<int>>& cycles)
 {
-    cout << "First cycle\tSecond cycle\n";
-    for (size_t j = 0; j < cycles[0].size(); j++)
+    for (size_t i = 0; i < cycles.size(); i++)
     {
-        if (cycles[0].size() > j)
-            cout << cycles[0][j];
-        if (cycles[1].size() > j)
-            cout << "\t\t" << cycles[1][j];
+        cout << "Cycle no." << i << ": ";
+        for (size_t j = 0; j < cycles[i].size(); j++)
+        {
+            cout << cycles[i][j] << " ";
+        }
         cout << "\n";
     }
 }
@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
 
 
     // Generate initial cycles
-    cout << "Generating initial cycles...\n";
+    cout << "\nGenerating initial cycles...\n";
     vector<vector<int>> cyclesPoints = {};
     if (string(argv[2]) == "regret")
     {
@@ -369,6 +369,8 @@ int main(int argc, char* argv[])
         cerr << argv[2] << " can be 'random' or 'regret'" << endl;
         return 1;
     }
+
+    showCycles(cyclesPoints);
 
     return 0;
 }
