@@ -327,6 +327,134 @@ vector<vector<int>> randomCycle(const vector<vector<int>>& distances)
     return cyclesPoints;
 }
 
+int outsideVerticesExchange(const vector<int>& cycleA, const vector<int>& cycleB,
+    const int aPointIndex, const int bPointIndex, const vector<vector<int>>& distances)
+{
+    int delta = 0;
+
+    int aPoint = cycleA[aPointIndex];
+    int aPointBefore = cycleA[(aPointIndex - 1 + cycleA.size()) % cycleA.size()];
+    int aPointAfter = cycleA[(aPointIndex + 1) % cycleA.size()];
+
+    int bPoint = cycleB[bPointIndex];
+    int bPointBefore = cycleB[(bPointIndex - 1 + cycleB.size()) % cycleB.size()];
+    int bPointAfter = cycleB[(bPointIndex + 1) % cycleB.size()];
+
+    delta = delta - distances[aPointBefore][aPoint] - distances[aPoint][aPointAfter];
+    delta = delta - distances[bPointBefore][bPoint] - distances[bPoint][bPointAfter];
+    delta = delta + distances[aPointBefore][bPoint] + distances[aPointAfter][bPoint];
+    delta = delta + distances[bPointBefore][aPoint] + distances[bPointAfter][aPoint];
+
+    return delta;
+}
+
+int insideVerticesExchange(const vector<int>& cycle, const int firstPointIndex,
+    const int secondPointIndex, const vector<vector<int>>& distances)
+{
+    int delta = 0;
+
+    int firstPoint = cycle[firstPointIndex];
+    int firstPointBefore = cycle[(firstPointIndex - 1 + cycle.size()) % cycle.size()];
+    int firstPointAfter = cycle[(firstPointIndex + 1) % cycle.size()];
+
+    int secondPoint = cycle[secondPointIndex];
+    int secondPointBefore = cycle[(secondPointIndex - 1 + cycle.size()) % cycle.size()];
+    int secondPointAfter = cycle[(secondPointIndex + 1) % cycle.size()];
+
+    delta = delta - distances[firstPointBefore][firstPoint] - distances[firstPoint][firstPointAfter];
+    delta = delta - distances[secondPointBefore][secondPoint] - distances[secondPoint][secondPointAfter];
+    delta = delta + distances[firstPointBefore][secondPoint] + distances[secondPoint][firstPointAfter];
+    delta = delta + distances[secondPointBefore][firstPoint] + distances[firstPoint][secondPointAfter];
+
+    // Condition in case the points are one after another
+    if (((firstPointIndex + 1) % cycle.size() == secondPointIndex)
+        || ((firstPointIndex - 1 + cycle.size()) % cycle.size() == secondPointIndex))
+    {
+        delta = delta + 2 * distances[firstPoint][secondPoint];
+    }
+
+    return delta;
+}
+
+vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vector<int>& move)
+{
+    vector<vector<int>> newCyclesPoints = cyclesPoints;
+    if (move[0] == 1)
+    {
+        newCyclesPoints[0][move[1]] = cyclesPoints[1][move[2]];
+        newCyclesPoints[1][move[2]] = cyclesPoints[0][move[1]];
+    }
+    else if (move[0] == 2)
+    {
+        newCyclesPoints[move[3]][move[1]] = cyclesPoints[move[3]][move[2]];
+        newCyclesPoints[move[3]][move[2]] = cyclesPoints[move[3]][move[1]];
+    }
+
+    return newCyclesPoints;
+}
+
+void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vector<int>>& distances)
+{
+    bool stopCondition = false;
+    while (!stopCondition)
+    {
+        stopCondition = true;
+
+        int bestDelta = BIG_M;
+        // bestMove{<move>, <first vertex index>, <second vertex index>, <cycle index>}
+        // move: 1 - exchanging the vertices between two cycles
+        //       2 - exchanging the vertices in one cycle
+        vector<int> bestMove = {0, 0, 0, 0};
+        int delta;
+
+        // Check exchanging the vertices between two cycles
+        for (int aPointIndex = 0; aPointIndex < cyclesPoints[0].size(); aPointIndex++)
+        {
+            for (int bPointIndex = aPointIndex; bPointIndex < cyclesPoints[1].size(); bPointIndex++)
+            {
+                delta = outsideVerticesExchange(cyclesPoints[0], cyclesPoints[1], aPointIndex, bPointIndex, distances);
+                if (delta < 0 && delta < bestDelta)
+                {
+                    bestDelta = delta;
+                    bestMove = {1, aPointIndex, bPointIndex, 0};
+                    stopCondition = false;
+                }
+            }
+        }
+
+        if (isVertices)
+        {
+            // Check exchanging two vertices in one cycle
+            for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+            {
+                for (int firstPointIndex = 0; firstPointIndex < cyclesPoints[cycleIndex].size() - 1; firstPointIndex++)
+                {
+                    for (int secondPointIndex = firstPointIndex + 1; secondPointIndex < cyclesPoints[cycleIndex].size(); secondPointIndex++)
+                    {
+                        delta = insideVerticesExchange(cyclesPoints[cycleIndex], firstPointIndex, secondPointIndex, distances);
+                        if (delta < 0 && delta < bestDelta)
+                        {
+                            bestDelta = delta;
+                            stopCondition = false;
+                            bestMove = {2, firstPointIndex, secondPointIndex, cycleIndex};
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!stopCondition)
+        {
+            cyclesPoints = makeMove(cyclesPoints, bestMove);
+        }
+    }
+}
+
+void greedy(const vector<vector<int>>& cyclesPoints, bool isVertices)
+{
+    cout << "Greedy\n";
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 5)
@@ -352,10 +480,9 @@ int main(int argc, char* argv[])
         }
     }
 
-
     // Generate initial cycles
     cout << "\nGenerating initial cycles...\n";
-    vector<vector<int>> cyclesPoints = {};
+    vector<vector<int>> cyclesPoints;
     if (string(argv[2]) == "regret")
     {
         cyclesPoints = regretCycle(distances);
@@ -370,7 +497,45 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // Neighbourhood types
+    bool isVertices;
+    if (string(argv[4]) == "vertices")
+    {
+        isVertices = true;
+    }
+    else if (string(argv[4]) == "edges")
+    {
+        isVertices = false;
+    }
+    else
+    {
+        cerr << argv[4] << " can be 'vertices' or 'edges'" << endl;
+        return 1;
+    }
+
     showCycles(cyclesPoints);
+    cout << "Cycles total length: " << getLengthBasedOnPoints(cyclesPoints[0], distances)
+        + getLengthBasedOnPoints(cyclesPoints[1], distances) << "\n";
+
+    // Start algorithm
+    cout << "\nStarting algorithm...\n";
+    if (string(argv[3]) == "steepest")
+    {
+        steepest(cyclesPoints, isVertices, distances);
+    }
+    else if (string(argv[3]) == "greedy")
+    {
+        greedy(cyclesPoints, isVertices);
+    }
+    else
+    {
+        cerr << argv[3] << " can be 'steepest' or 'greedy'" << endl;
+        return 1;
+    }
+
+    showCycles(cyclesPoints);
+    cout << "Cycles total length: " << getLengthBasedOnPoints(cyclesPoints[0], distances)
+        + getLengthBasedOnPoints(cyclesPoints[1], distances) << "\n";
 
     return 0;
 }
