@@ -419,12 +419,16 @@ vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, const bool 
         }
     }
 
-    // Shuffle the possible moves
-    random_device rd;
-    mt19937 g(rd());
-    shuffle(allPossibleMoves.begin(), allPossibleMoves.end(), g);
-
     return allPossibleMoves;
+}
+
+vector<vector<int>> shuffleMoves(vector<vector<int>>& movesList)
+{
+    auto rng = default_random_engine {};
+    vector<vector<int>> shuffledMoves = movesList;
+    shuffle(begin(shuffledMoves), end(shuffledMoves), rng);
+
+    return shuffledMoves;
 }
 
 vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vector<int>& move)
@@ -539,19 +543,21 @@ void steepest(vector<vector<int>>& cyclesPoints, const bool isVertices, const ve
     }
 }
 
-void greedy(vector<vector<int>>& cyclesPoints, const bool isVertices, const vector<vector<int>>& distances)
+void greedy(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, vector<vector<int>>& allPossibleMoves)
 {
     bool stopCondition = false;
     while (!stopCondition)
     {
         stopCondition = true;
-        vector<vector<int>> allPossibleMoves = generateMoves(cyclesPoints, isVertices, distances);
-        for (int moveIndex = 0; moveIndex < allPossibleMoves.size(); moveIndex++)
+        vector<vector<int>> shuffledPossibleMoves = shuffleMoves(allPossibleMoves);
+        allPossibleMoves = shuffledPossibleMoves;
+
+        for (int moveIndex = 0; moveIndex < shuffledPossibleMoves.size(); moveIndex++)
         {
-            int delta = computeDeltaBasedOnMove(allPossibleMoves[moveIndex], cyclesPoints, distances);
+            int delta = computeDeltaBasedOnMove(shuffledPossibleMoves[moveIndex], cyclesPoints, distances);
             if (delta < 0)
             {
-                cyclesPoints = makeMove(cyclesPoints, allPossibleMoves[moveIndex]);
+                cyclesPoints = makeMove(cyclesPoints, shuffledPossibleMoves[moveIndex]);
                 stopCondition = false;
                 break;
             }
@@ -675,7 +681,8 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[3]) == "greedy")
         {
-            greedy(cyclesPoints, isVertices, distances);
+            vector<vector<int>> allPossibleMoves = generateMoves(cyclesPoints, isVertices, distances);
+            greedy(cyclesPoints, distances, allPossibleMoves);
         }
         else if (string(argv[3]) == "randomWalk")
         {
