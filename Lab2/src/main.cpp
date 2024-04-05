@@ -393,6 +393,58 @@ int insideEdgesExchange(const vector<int>& cycle, const int firstPointIndex,
     return delta;
 }
 
+int computeDeltaBasedOnMove(const vector<int>& move, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    switch (move[0])
+    {
+    case 1:
+        return outsideVerticesExchange(cyclesPoints[0], cyclesPoints[1], move[1], move[2], distances);
+        break;
+    case 2:
+        return insideVerticesExchange(cyclesPoints[move[3]], move[1], move[2], distances);
+        break;
+
+    case 3:
+        return insideEdgesExchange(cyclesPoints[move[3]], move[1], move[2], distances);
+        break;
+
+    default:
+        return BIG_M;
+        break;
+    }
+}
+
+vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vector<int>>& distances)
+{
+    // Create a vector of all possible moves
+    vector<vector<int>> allPossibleMoves = {};
+    for (int move = 1; move < 4; move++)
+    {
+        if ((isVertices && move == 3) || (!isVertices && move == 2))
+        {
+            continue;
+        }
+
+        for (int firstVertex = 0; firstVertex < cyclesPoints[0].size() - 1; firstVertex++)
+        {
+            for (int secondVertex = firstVertex + 1; secondVertex < cyclesPoints[0].size(); secondVertex++)
+            {
+                for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+                {
+                    allPossibleMoves.push_back({move, firstVertex, secondVertex, cycleIndex});
+                }
+            }
+        }
+    }
+
+    // Shuffle the possible moves
+    random_device rd;
+    mt19937 g(rd());
+    shuffle(allPossibleMoves.begin(), allPossibleMoves.end(), g);
+
+    return allPossibleMoves;
+}
+
 vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vector<int>& move)
 {
     vector<vector<int>> newCyclesPoints = cyclesPoints;
@@ -443,7 +495,7 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
         {
             for (int bPointIndex = aPointIndex; bPointIndex < cyclesPoints[1].size(); bPointIndex++)
             {
-                delta = outsideVerticesExchange(cyclesPoints[0], cyclesPoints[1], aPointIndex, bPointIndex, distances);
+                delta = computeDeltaBasedOnMove({1, aPointIndex, bPointIndex, 0}, cyclesPoints, distances);
                 if (delta < 0 && delta < bestDelta)
                 {
                     bestDelta = delta;
@@ -462,7 +514,7 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
                 {
                     for (int secondPointIndex = firstPointIndex + 1; secondPointIndex < cyclesPoints[cycleIndex].size(); secondPointIndex++)
                     {
-                        delta = insideVerticesExchange(cyclesPoints[cycleIndex], firstPointIndex, secondPointIndex, distances);
+                        delta = computeDeltaBasedOnMove({2, firstPointIndex, secondPointIndex, cycleIndex}, cyclesPoints, distances);
                         if (delta < 0 && delta < bestDelta)
                         {
                             bestDelta = delta;
@@ -482,7 +534,7 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
                 {
                     for (int secondPointIndex = firstPointIndex + 1; secondPointIndex < cyclesPoints[cycleIndex].size(); secondPointIndex++)
                     {
-                        delta = insideEdgesExchange(cyclesPoints[cycleIndex], firstPointIndex, secondPointIndex, distances);
+                        delta = computeDeltaBasedOnMove({3, firstPointIndex, secondPointIndex, cycleIndex}, cyclesPoints, distances);
                         if (delta < 0 && delta < bestDelta)
                         {
                             bestDelta = delta;
@@ -501,9 +553,24 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
     }
 }
 
-void greedy(const vector<vector<int>>& cyclesPoints, bool isVertices)
+void greedy(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vector<int>>& distances)
 {
-    cout << "Greedy\n";
+    bool stopCondition = false;
+    while (!stopCondition)
+    {
+        stopCondition = true;
+        vector<vector<int>> allPossibleMoves = generateMoves(cyclesPoints, isVertices, distances);
+        for (int moveIndex = 0; moveIndex < allPossibleMoves.size(); moveIndex++)
+        {
+            int delta = computeDeltaBasedOnMove(allPossibleMoves[moveIndex], cyclesPoints, distances);
+            if (delta < 0)
+            {
+                cyclesPoints = makeMove(cyclesPoints, allPossibleMoves[moveIndex]);
+                stopCondition = false;
+                break;
+            }
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -576,7 +643,7 @@ int main(int argc, char* argv[])
     }
     else if (string(argv[3]) == "greedy")
     {
-        greedy(cyclesPoints, isVertices);
+        greedy(cyclesPoints, isVertices, distances);
     }
     else
     {
