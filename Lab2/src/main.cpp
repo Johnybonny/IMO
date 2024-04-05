@@ -282,24 +282,6 @@ pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& dista
     return {cyclesPoints, totalLength};
 }
 
-vector<vector<int>> regretCycle(const vector<vector<int>>& distances)
-{
-    vector<vector<int>> regretHeuristicsPoints = {};
-    int regretHeuristicsBest = BIG_M;
-    for (int startingPoint = 0; startingPoint < distances.size(); startingPoint++)
-    {
-        pair<vector<vector<int>>, int> regretHeuristicsResult = regretHeuristics(distances, startingPoint, COST_WEIGHT);
-
-        int score = regretHeuristicsResult.second;
-        if (score < regretHeuristicsBest)
-        {
-            regretHeuristicsPoints = regretHeuristicsResult.first;
-            regretHeuristicsBest = score;
-        }
-    }
-    return regretHeuristicsPoints;
-}
-
 vector<vector<int>> randomCycle(const vector<vector<int>>& distances)
 {
     vector<vector<int>> cyclesPoints = {{}, {}};
@@ -464,11 +446,15 @@ vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vect
         int firstPointAfterIndex = (firstPointIndex + 1) % cyclesPoints[move[3]].size();
         int secondPointIndex = move[2];
         int secondPointAfterIndex = (secondPointIndex + 1) % cyclesPoints[move[3]].size();
+
         int lastIndexToChange = secondPointIndex;
-        for (int i = firstPointAfterIndex; i < secondPointAfterIndex; i++)
+        int current = firstPointAfterIndex;
+        while(current != secondPointAfterIndex)
         {
-            newCyclesPoints[move[3]][i] = cyclesPoints[move[3]][lastIndexToChange];
+            newCyclesPoints[move[3]][current] = cyclesPoints[move[3]][lastIndexToChange];
             lastIndexToChange--;
+
+            current = (current + 1) % cyclesPoints[move[3]].size();
         }
     }
 
@@ -596,12 +582,38 @@ void randomWalk(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& di
     }
 }
 
+pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vector<int>>>& results, const vector<vector<int>>& distances)
+{
+    int sum = 0;
+    int bestResult = BIG_M;
+    int worstResult = 0;
+    vector<vector<int>> bestCycles;
+    for (int res = 0; res < results.size(); res++)
+    {
+        int score = getLengthBasedOnPoints(results[res][0], distances)
+            + getLengthBasedOnPoints(results[res][1], distances);
+
+        if (score < bestResult)
+        {
+            bestCycles = results[res];
+            bestResult = score;
+        }
+        else if (score > worstResult)
+        {
+            worstResult = score;
+        }
+
+        sum += score;
+    }
+    return {bestCycles, {bestResult, int(sum/results.size()), worstResult}};
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 5)
     {
-        cerr << "Usage: " << argv[0] << " <input_filename> <random|regret> <steepest|greedy>";
-        cerr << " <vertices|edges>" << endl;
+        cerr << "Usage: " << argv[0] << " <input_filename> <random|regret>";
+        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges>" << endl;
         return 1;
     }
 
@@ -621,66 +633,71 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Generate initial cycles
-    cout << "\nGenerating initial cycles...\n";
-    vector<vector<int>> cyclesPoints;
-    if (string(argv[2]) == "regret")
+    vector<vector<vector<int>>> results = {};
+    for (int iteration = 0; iteration < distances.size(); iteration++)
     {
-        cyclesPoints = regretCycle(distances);
-    }
-    else if (string(argv[2]) == "random")
-    {
-        cyclesPoints = randomCycle(distances);
-    }
-    else
-    {
-        cerr << argv[2] << " can be 'random' or 'regret'" << endl;
-        return 1;
+        // Generate initial cycles
+        vector<vector<int>> cyclesPoints;
+        if (string(argv[2]) == "regret")
+        {
+            cyclesPoints = regretHeuristics(distances, iteration, COST_WEIGHT).first;
+        }
+        else if (string(argv[2]) == "random")
+        {
+            cyclesPoints = randomCycle(distances);
+        }
+        else
+        {
+            cerr << argv[2] << " can be 'random' or 'regret'" << endl;
+            return 1;
+        }
+
+        // Neighbourhood types
+        bool isVertices;
+        if (string(argv[4]) == "vertices")
+        {
+            isVertices = true;
+        }
+        else if (string(argv[4]) == "edges")
+        {
+            isVertices = false;
+        }
+        else
+        {
+            cerr << argv[4] << " can be 'vertices' or 'edges'" << endl;
+            return 1;
+        }
+
+        // Start algorithm
+        if (string(argv[3]) == "steepest")
+        {
+            steepest(cyclesPoints, isVertices, distances);
+        }
+        else if (string(argv[3]) == "greedy")
+        {
+            greedy(cyclesPoints, isVertices, distances);
+        }
+        else if (string(argv[3]) == "randomWalk")
+        {
+            randomWalk(cyclesPoints, distances);
+        }
+        else if (string(argv[3]) == "none")
+        {
+        }
+        else
+        {
+            cerr << argv[3] << " can be 'steepest', 'greedy', 'randomWalk' or 'none'" << endl;
+            return 1;
+        }
+
+        results.push_back(cyclesPoints);
     }
 
-    // Neighbourhood types
-    bool isVertices;
-    if (string(argv[4]) == "vertices")
-    {
-        isVertices = true;
-    }
-    else if (string(argv[4]) == "edges")
-    {
-        isVertices = false;
-    }
-    else
-    {
-        cerr << argv[4] << " can be 'vertices' or 'edges'" << endl;
-        return 1;
-    }
+    // statistics{<best cycles points>, {min, mean, max}}
+    pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances);
+    cout << "\nMin: " << statistics.second[0] << "\tMean: " << statistics.second[1];
+    cout << "\tMax: " << statistics.second[2] << "\n\n";
 
-    showCycles(cyclesPoints);
-    cout << "Cycles total length: " << getLengthBasedOnPoints(cyclesPoints[0], distances)
-        + getLengthBasedOnPoints(cyclesPoints[1], distances) << "\n";
-
-    // Start algorithm
-    cout << "\nStarting algorithm...\n";
-    if (string(argv[3]) == "steepest")
-    {
-        steepest(cyclesPoints, isVertices, distances);
-    }
-    else if (string(argv[3]) == "greedy")
-    {
-        greedy(cyclesPoints, isVertices, distances);
-    }
-    else if (string(argv[3]) == "randomWalk")
-    {
-        randomWalk(cyclesPoints, distances);
-    }
-    else
-    {
-        cerr << argv[3] << " can be 'steepest' or 'greedy' or 'randomWalk'" << endl;
-        return 1;
-    }
-
-    showCycles(cyclesPoints);
-    cout << "Cycles total length: " << getLengthBasedOnPoints(cyclesPoints[0], distances)
-        + getLengthBasedOnPoints(cyclesPoints[1], distances) << "\n";
 
     return 0;
 }
