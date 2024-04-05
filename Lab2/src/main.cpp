@@ -117,7 +117,7 @@ int euclideanDistance(const vector<int>& p1, const vector<int>& p2)
     return int(sqrt(sum) + 0.5);
 }
 
-int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, int point)
+int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
 {
     int maximumDistance = distances[point][point];
     int furthestPoint = point;
@@ -132,7 +132,7 @@ int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& 
     return furthestPoint;
 }
 
-int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, int point)
+int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
 {
     int minimumDistance = BIG_M;
     int closestPoint = point;
@@ -147,7 +147,7 @@ int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& t
     return closestPoint;
 }
 
-vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances, int startingPoint)
+vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances, const int startingPoint)
 {
     // Choose second point
     int secondPoint = findFurthestPoint(distances, vector<bool>(distances.size(), false), startingPoint);
@@ -180,7 +180,7 @@ void showCycles(const vector<vector<int>>& cycles)
     }
 }
 
-pair<pair<int, int>, int> computeRegret(vector<pair<int, int>>& costs)
+pair<pair<int, int>, int> computeRegret(const vector<pair<int, int>>& costs)
 {
     int lowestValue = BIG_M;
     int lowestValuePlace = 0;
@@ -204,7 +204,7 @@ pair<pair<int, int>, int> computeRegret(vector<pair<int, int>>& costs)
     return {{lowestValuePlace, int(secondLowestValue - lowestValue)}, lowestValue};
 }
 
-pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& distances, int startingPoint, double costWeight)
+pair<vector<vector<int>>, int> regretHeuristics(const vector<vector<int>>& distances, const int startingPoint, const double costWeight)
 {
     // Initialize cycles with first point in each
     vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances, startingPoint);
@@ -414,7 +414,7 @@ int computeDeltaBasedOnMove(const vector<int>& move, vector<vector<int>>& cycles
     }
 }
 
-vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vector<int>>& distances)
+vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, const bool isVertices, const vector<vector<int>>& distances)
 {
     // Create a vector of all possible moves
     vector<vector<int>> allPossibleMoves = {};
@@ -475,7 +475,7 @@ vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vect
     return newCyclesPoints;
 }
 
-void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vector<int>>& distances)
+void steepest(vector<vector<int>>& cyclesPoints, const bool isVertices, const vector<vector<int>>& distances)
 {
     bool stopCondition = false;
     while (!stopCondition)
@@ -553,7 +553,7 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
     }
 }
 
-void greedy(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vector<int>>& distances)
+void greedy(vector<vector<int>>& cyclesPoints, const bool isVertices, const vector<vector<int>>& distances)
 {
     bool stopCondition = false;
     while (!stopCondition)
@@ -570,6 +570,29 @@ void greedy(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<vec
                 break;
             }
         }
+    }
+}
+
+vector<int> generateRandomMove(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    srand(time(NULL));
+
+    int move = rand() % 3 + 1;
+    int firstPoint = rand() % cyclesPoints[0].size();
+    int secondPoint = rand() % cyclesPoints[0].size();
+    int cycleIndex = rand() % NUM_OF_CYCLES;
+
+    return {move, firstPoint, secondPoint, cycleIndex};
+}
+
+void randomWalk(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    int someTime = 0; // TODO: Correct time of algorithm
+    while (someTime < 10000)
+    {
+        vector<int> randomMove = generateRandomMove(cyclesPoints, distances);
+        cyclesPoints = makeMove(cyclesPoints, randomMove);
+        someTime++;
     }
 }
 
@@ -645,9 +668,13 @@ int main(int argc, char* argv[])
     {
         greedy(cyclesPoints, isVertices, distances);
     }
+    else if (string(argv[3]) == "randomWalk")
+    {
+        randomWalk(cyclesPoints, distances);
+    }
     else
     {
-        cerr << argv[3] << " can be 'steepest' or 'greedy'" << endl;
+        cerr << argv[3] << " can be 'steepest' or 'greedy' or 'randomWalk'" << endl;
         return 1;
     }
 
