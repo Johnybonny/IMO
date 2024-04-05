@@ -376,6 +376,23 @@ int insideVerticesExchange(const vector<int>& cycle, const int firstPointIndex,
     return delta;
 }
 
+int insideEdgesExchange(const vector<int>& cycle, const int firstPointIndex,
+    const int secondPointIndex, const vector<vector<int>>& distances)
+{
+    int delta = 0;
+
+    int firstPoint = cycle[firstPointIndex];
+    int firstPointAfter = cycle[(firstPointIndex + 1) % cycle.size()];
+
+    int secondPoint = cycle[secondPointIndex];
+    int secondPointAfter = cycle[(secondPointIndex + 1) % cycle.size()];
+
+    delta = delta - distances[firstPoint][firstPointAfter] - distances[secondPoint][secondPointAfter];
+    delta = delta + distances[firstPoint][secondPoint] + distances[firstPointAfter][secondPointAfter];
+
+    return delta;
+}
+
 vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vector<int>& move)
 {
     vector<vector<int>> newCyclesPoints = cyclesPoints;
@@ -388,6 +405,19 @@ vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vect
     {
         newCyclesPoints[move[3]][move[1]] = cyclesPoints[move[3]][move[2]];
         newCyclesPoints[move[3]][move[2]] = cyclesPoints[move[3]][move[1]];
+    }
+    else if (move[0] == 3)
+    {
+        int firstPointIndex = move[1];
+        int firstPointAfterIndex = (firstPointIndex + 1) % cyclesPoints[move[3]].size();
+        int secondPointIndex = move[2];
+        int secondPointAfterIndex = (secondPointIndex + 1) % cyclesPoints[move[3]].size();
+        int lastIndexToChange = secondPointIndex;
+        for (int i = firstPointAfterIndex; i < secondPointAfterIndex; i++)
+        {
+            newCyclesPoints[move[3]][i] = cyclesPoints[move[3]][lastIndexToChange];
+            lastIndexToChange--;
+        }
     }
 
     return newCyclesPoints;
@@ -402,12 +432,13 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
 
         int bestDelta = BIG_M;
         // bestMove{<move>, <first vertex index>, <second vertex index>, <cycle index>}
-        // move: 1 - exchanging the vertices between two cycles
-        //       2 - exchanging the vertices in one cycle
+        // move: 1 - exchanging vertices between two cycles
+        //       2 - exchanging vertices in one cycle
+        //       3 - exchanging edges in one cycle
         vector<int> bestMove = {0, 0, 0, 0};
         int delta;
 
-        // Check exchanging the vertices between two cycles
+        // Exchanging the vertices between two cycles
         for (int aPointIndex = 0; aPointIndex < cyclesPoints[0].size(); aPointIndex++)
         {
             for (int bPointIndex = aPointIndex; bPointIndex < cyclesPoints[1].size(); bPointIndex++)
@@ -424,7 +455,7 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
 
         if (isVertices)
         {
-            // Check exchanging two vertices in one cycle
+            // Exchanging two vertices in one cycle
             for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
             {
                 for (int firstPointIndex = 0; firstPointIndex < cyclesPoints[cycleIndex].size() - 1; firstPointIndex++)
@@ -437,6 +468,26 @@ void steepest(vector<vector<int>>& cyclesPoints, bool isVertices, const vector<v
                             bestDelta = delta;
                             stopCondition = false;
                             bestMove = {2, firstPointIndex, secondPointIndex, cycleIndex};
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Exchanging two edges in one cycle
+            for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+            {
+                for (int firstPointIndex = 0; firstPointIndex < cyclesPoints[cycleIndex].size() - 1; firstPointIndex++)
+                {
+                    for (int secondPointIndex = firstPointIndex + 1; secondPointIndex < cyclesPoints[cycleIndex].size(); secondPointIndex++)
+                    {
+                        delta = insideEdgesExchange(cyclesPoints[cycleIndex], firstPointIndex, secondPointIndex, distances);
+                        if (delta < 0 && delta < bestDelta)
+                        {
+                            bestDelta = delta;
+                            stopCondition = false;
+                            bestMove = {3, firstPointIndex, secondPointIndex, cycleIndex};
                         }
                     }
                 }
