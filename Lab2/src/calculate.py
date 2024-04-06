@@ -26,6 +26,7 @@ def read_connections(filename):
     return connections
 
 def draw_map(vertices, connections1, connections2, map_filename, title='', color1='b', color2='r'):
+    plt.figure(figsize=(15, 8))
     fig, ax = plt.subplots()
     
     # Plot vertices
@@ -48,9 +49,8 @@ def draw_map(vertices, connections1, connections2, map_filename, title='', color
         ax.plot([x1, x2], [y1, y2], color2, linewidth=2)  # Draw connections
 
     ax.set_aspect('equal', adjustable='box')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title(title)
+    # plt.title(title)
+    plt.tight_layout()
     plt.grid(True)
     plt.savefig(map_filename, dpi=300)
     plt.close()
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         for start in ['random', 'regret']:
             for policy in ['steepest', 'greedy', 'randomWalk', 'none']:
                 for n_type in ['vertices', 'edges']:
-                    print(f"Running: {file} {start} {policy} {n_type}")
+                    print(f"\033[1;32mRunning: {file} {start} {policy} {n_type}\033[0m")
                     directory = Path('out') / file.split('/')[1].split('.')[0] / start / policy / n_type
                     directory.mkdir(parents=True, exist_ok=True)
                     filename_1 = directory / "cycle1.txt"

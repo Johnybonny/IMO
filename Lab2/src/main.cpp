@@ -582,10 +582,12 @@ pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vec
         sum += score;
     }
 
+    int minTime = *min_element(times.begin(), times.end());
+    int maxTime = *max_element(times.begin(), times.end());
     float const count = static_cast<float>(times.size());
     int averageTime = int(reduce(times.begin(), times.end()) / count);
 
-    return {bestCycles, {bestResult, int(sum/results.size()), worstResult, averageTime}};
+    return {bestCycles, {bestResult, int(sum/results.size()), worstResult, minTime, averageTime, maxTime}};
 }
 
 int main(int argc, char* argv[])
@@ -630,7 +632,7 @@ int main(int argc, char* argv[])
     }
 
     // Random walk time
-    int randmoWalkTime = atoi(argv[5]);
+    int randomWalkTime = atoi(argv[5]);
 
     srand(time(NULL));
     vector<vector<int>> allPossibleMoves = generateMoves(distances.size() / 2, isVertices, distances);
@@ -668,7 +670,7 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[3]) == "randomWalk")
         {
-            randomWalkResult = randomWalk(cyclesPoints, distances, 15000, allPossibleMoves);
+            randomWalkResult = randomWalk(cyclesPoints, distances, randomWalkTime, allPossibleMoves);
             cyclesPoints = randomWalkResult.first;
         }
         else if (string(argv[3]) == "none")
@@ -687,9 +689,8 @@ int main(int argc, char* argv[])
 
     // statistics{<best cycles points>, {min, mean, max, avg time}}
     pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances, times);
-    cout << "\nMin: " << statistics.second[0] << "\tMean: " << statistics.second[1];
-    cout << "\tMax: " << statistics.second[2] << "\n";
-    cout << "Average time: " << statistics.second[3] << "\n\n";
+    cout << "Values:\tMin: " << statistics.second[0] << "\tMean: " << statistics.second[1] << "\tMax: " << statistics.second[2] << "\n";
+    cout << "Time:\tMin: " << statistics.second[3] << "\tMean: " << statistics.second[4] << "\tMax: " << statistics.second[5] << "\n";
 
     saveCycleToFile(statistics.first, argv[6], argv[7]);
 
