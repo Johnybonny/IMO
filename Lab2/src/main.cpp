@@ -1,35 +1,19 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <ctime>
 #include <ctime>
 #include <fstream>
 #include <iostream>
 #include <random>
 #include <sstream>
-#include <ctime>
 #include <vector>
 
-#define NUM_OF_CYCLES 2
 #define BIG_M 1000000000
 #define COST_WEIGHT 0.6
+#define NUM_OF_CYCLES 2
 
 using namespace std;
-
-void progressBar(double progress)
-{
-    cout << "[";
-    for (int i = 0; i < progress; i++)
-    {
-        if (i % 10 == 0)
-            cout << "=";
-    }
-    cout << ">";
-    for (int i = progress; i < 100; i++)
-    {
-        if (i % 10 == 0)
-            cout << " ";
-    }
-    cout << "]\n";
-}
 
 vector<vector<int>> parseInput(const string& filename)
 {
@@ -79,32 +63,6 @@ void saveCycleToFile(const vector<vector<int>>& points, const string& fileName1,
     }
     file1 << points[1][points[1].size() - 1] << "\t" << points[1][0];
     file1.close();
-}
-
-void saveResultsToFile(const vector<int>& results, const string& fileName)
-{
-    int maximumCycle = 0;
-    int minimumCycle = BIG_M;
-    int sum = 0;
-    for (size_t i = 0; i < results.size(); i++)
-    {
-        if (results[i] > maximumCycle)
-        {
-            maximumCycle = results[i];
-        }
-        else if (results[i] < minimumCycle)
-        {
-            minimumCycle = results[i];
-        }
-        sum += results[i];
-    }
-
-    ofstream file;
-    file.open(fileName);
-    file << "Minimum:" << "\t" << minimumCycle << "\n";
-    file << "Average:" << "\t" << sum / results.size() << "\n";
-    file << "Maximum:" << "\t" << maximumCycle << "\n";
-    file.close();
 }
 
 int euclideanDistance(const vector<int>& p1, const vector<int>& p2)
@@ -292,7 +250,6 @@ vector<vector<int>> randomCycle(const vector<vector<int>>& distances)
         freePoints.push_back(i);
     }
 
-    srand(time(NULL));
     while (freePoints.size() != 0)
     {
         for (size_t cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
@@ -396,7 +353,7 @@ int computeDeltaBasedOnMove(const vector<int>& move, vector<vector<int>>& cycles
     }
 }
 
-vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, const bool isVertices, const vector<vector<int>>& distances)
+vector<vector<int>> generateMoves(const int size, const bool isVertices, const vector<vector<int>>& distances)
 {
     // Create a vector of all possible moves
     vector<vector<int>> allPossibleMoves = {};
@@ -407,13 +364,20 @@ vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, const bool 
             continue;
         }
 
-        for (int firstVertex = 0; firstVertex < cyclesPoints[0].size() - 1; firstVertex++)
+        for (int firstVertex = 0; firstVertex < size - 1; firstVertex++)
         {
-            for (int secondVertex = firstVertex + 1; secondVertex < cyclesPoints[0].size(); secondVertex++)
+            for (int secondVertex = firstVertex + 1; secondVertex < size; secondVertex++)
             {
-                for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+                if (move == 1)
                 {
-                    allPossibleMoves.push_back({move, firstVertex, secondVertex, cycleIndex});
+                    allPossibleMoves.push_back({move, firstVertex, secondVertex, 0});
+                }
+                else
+                {
+                    for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+                    {
+                        allPossibleMoves.push_back({move, firstVertex, secondVertex, cycleIndex});
+                    }
                 }
             }
         }
@@ -424,9 +388,8 @@ vector<vector<int>> generateMoves(vector<vector<int>>& cyclesPoints, const bool 
 
 vector<vector<int>> shuffleMoves(vector<vector<int>>& movesList)
 {
-    auto rng = default_random_engine {};
     vector<vector<int>> shuffledMoves = movesList;
-    shuffle(begin(shuffledMoves), end(shuffledMoves), rng);
+    random_shuffle(begin(shuffledMoves), end(shuffledMoves));
 
     return shuffledMoves;
 }
@@ -565,30 +528,37 @@ void greedy(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distan
     }
 }
 
-vector<int> generateRandomMove(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+pair<vector<vector<int>>, int> randomWalk(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances,
+    const int maximumTime, vector<vector<int>>& allPossibleMoves)
 {
-    srand(time(NULL));
+    chrono::steady_clock::time_point beginRandomWalk = chrono::steady_clock::now();
+    chrono::steady_clock::time_point timestampRandomWalk = chrono::steady_clock::now();
 
-    int move = rand() % 3 + 1;
-    int firstPoint = rand() % cyclesPoints[0].size();
-    int secondPoint = rand() % cyclesPoints[0].size();
-    int cycleIndex = rand() % NUM_OF_CYCLES;
-
-    return {move, firstPoint, secondPoint, cycleIndex};
-}
-
-void randomWalk(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
-{
-    int someTime = 0; // TODO: Correct time of algorithm
-    while (someTime < 10000)
+    int delta;
+    int bestLength = BIG_M;
+    vector<int> randomMove;
+    int cyclesLength = getLengthBasedOnPoints(cyclesPoints[0], distances) + getLengthBasedOnPoints(cyclesPoints[0], distances);
+    vector<vector<int>> bestCyclesPoints = {};
+    while (chrono::duration_cast<chrono::microseconds>(timestampRandomWalk - beginRandomWalk).count() < maximumTime)
     {
-        vector<int> randomMove = generateRandomMove(cyclesPoints, distances);
+        randomMove = allPossibleMoves[rand() % allPossibleMoves.size()];
+        delta = computeDeltaBasedOnMove(randomMove, cyclesPoints, distances);
         cyclesPoints = makeMove(cyclesPoints, randomMove);
-        someTime++;
+
+        cyclesLength += delta;
+        if (cyclesLength < bestLength)
+        {
+            bestLength = cyclesLength;
+            bestCyclesPoints = cyclesPoints;
+        }
+
+        timestampRandomWalk = chrono::steady_clock::now();
     }
+    return {bestCyclesPoints, bestLength};
 }
 
-pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vector<int>>>& results, const vector<vector<int>>& distances)
+pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vector<int>>>& results,
+    const vector<vector<int>>& distances, const vector<int>& times)
 {
     int sum = 0;
     int bestResult = BIG_M;
@@ -611,15 +581,19 @@ pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vec
 
         sum += score;
     }
-    return {bestCycles, {bestResult, int(sum/results.size()), worstResult}};
+
+    float const count = static_cast<float>(times.size());
+    int averageTime = int(reduce(times.begin(), times.end()) / count);
+
+    return {bestCycles, {bestResult, int(sum/results.size()), worstResult, averageTime}};
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc != 5)
+    if (argc != 6)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <random|regret>";
-        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges>" << endl;
+        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges> <maximum random walk time>" << endl;
         return 1;
     }
 
@@ -639,9 +613,32 @@ int main(int argc, char* argv[])
         }
     }
 
+    // Neighbourhood types
+    bool isVertices;
+    if (string(argv[4]) == "vertices")
+    {
+        isVertices = true;
+    }
+    else if (string(argv[4]) == "edges")
+    {
+        isVertices = false;
+    }
+    else
+    {
+        cerr << argv[4] << " can be 'vertices' or 'edges'" << endl;
+        return 1;
+    }
+
+    // Random walk time
+    int randmoWalkTime = atoi(argv[5]);
+
+    srand(time(NULL));
+    vector<vector<int>> allPossibleMoves = generateMoves(distances.size() / 2, isVertices, distances);
     vector<vector<vector<int>>> results = {};
+    vector<int> times = {};
     for (int iteration = 0; iteration < distances.size(); iteration++)
     {
+        cout << iteration << "%\n";
         // Generate initial cycles
         vector<vector<int>> cyclesPoints;
         if (string(argv[2]) == "regret")
@@ -658,35 +655,21 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        // Neighbourhood types
-        bool isVertices;
-        if (string(argv[4]) == "vertices")
-        {
-            isVertices = true;
-        }
-        else if (string(argv[4]) == "edges")
-        {
-            isVertices = false;
-        }
-        else
-        {
-            cerr << argv[4] << " can be 'vertices' or 'edges'" << endl;
-            return 1;
-        }
-
         // Start algorithm
+        pair<vector<vector<int>>, int> randomWalkResult;
+        chrono::steady_clock::time_point beginTimeMeasurement = chrono::steady_clock::now();
         if (string(argv[3]) == "steepest")
         {
             steepest(cyclesPoints, isVertices, distances);
         }
         else if (string(argv[3]) == "greedy")
         {
-            vector<vector<int>> allPossibleMoves = generateMoves(cyclesPoints, isVertices, distances);
             greedy(cyclesPoints, distances, allPossibleMoves);
         }
         else if (string(argv[3]) == "randomWalk")
         {
-            randomWalk(cyclesPoints, distances);
+            randomWalkResult = randomWalk(cyclesPoints, distances, 15000, allPossibleMoves);
+            cyclesPoints = randomWalkResult.first;
         }
         else if (string(argv[3]) == "none")
         {
@@ -696,15 +679,19 @@ int main(int argc, char* argv[])
             cerr << argv[3] << " can be 'steepest', 'greedy', 'randomWalk' or 'none'" << endl;
             return 1;
         }
+        chrono::steady_clock::time_point endTimeMeasurement = chrono::steady_clock::now();
 
         results.push_back(cyclesPoints);
+        times.push_back(chrono::duration_cast<std::chrono::microseconds>(endTimeMeasurement - beginTimeMeasurement).count());
     }
 
-    // statistics{<best cycles points>, {min, mean, max}}
-    pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances);
+    // statistics{<best cycles points>, {min, mean, max, avg time}}
+    pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances, times);
     cout << "\nMin: " << statistics.second[0] << "\tMean: " << statistics.second[1];
-    cout << "\tMax: " << statistics.second[2] << "\n\n";
+    cout << "\tMax: " << statistics.second[2] << "\n";
+    cout << "Average time: " << statistics.second[3] << "\n\n";
 
+    saveCycleToFile(statistics.first, "file1.txt", "file2.txt");
 
     return 0;
 }
