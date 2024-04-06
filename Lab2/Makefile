@@ -1,8 +1,9 @@
 compile:
-	g++ ./src/main.cpp -o ./out/main.out
+	mkdir -p out/bin
+	g++ ./src/main.cpp -o ./out/bin/main.out
 
 calculate:
-	./out/main.out data/kroA100.tsp random none vertices 15000
+	python3 ./src/calculate.py
 
 run: compile calculate
 	@echo "Done 🙌🎉"

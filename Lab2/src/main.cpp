@@ -590,10 +590,10 @@ pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vec
 
 int main(int argc, char* argv[])
 {
-    if (argc != 6)
+    if (argc != 8)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <random|regret>";
-        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges> <maximum random walk time>" << endl;
+        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges> <maximum random walk time> <output_filename_1> <output_filename_2>" << endl;
         return 1;
     }
 
@@ -638,7 +638,7 @@ int main(int argc, char* argv[])
     vector<int> times = {};
     for (int iteration = 0; iteration < distances.size(); iteration++)
     {
-        cout << iteration << "%\n";
+        // cout << iteration << "%\n";
         // Generate initial cycles
         vector<vector<int>> cyclesPoints;
         if (string(argv[2]) == "regret")
@@ -691,7 +691,7 @@ int main(int argc, char* argv[])
     cout << "\tMax: " << statistics.second[2] << "\n";
     cout << "Average time: " << statistics.second[3] << "\n\n";
 
-    saveCycleToFile(statistics.first, "file1.txt", "file2.txt");
+    saveCycleToFile(statistics.first, argv[6], argv[7]);
 
     return 0;
 }
