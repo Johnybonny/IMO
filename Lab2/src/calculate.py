@@ -66,7 +66,7 @@ if __name__ == "__main__":
                     directory.mkdir(parents=True, exist_ok=True)
                     filename_1 = directory / "cycle1.txt"
                     filename_2 = directory / "cycle2.txt"
-                    subprocess.run(['./out/bin/main.out', file, start, policy, n_type, '15000', str(filename_1), str(filename_2)])
+                    subprocess.run(['./out/bin/main.out', file, start, policy, n_type, '300000', str(filename_1), str(filename_2)])
 
                     vertices = read_vertex_coordinates(file)
                     connections1 = read_connections(str(filename_1))

@@ -21,6 +21,10 @@ https://github.com/Johnybonny/IMO
 
 Każdy z algorytmów akceptuje na wejściu macierz odległości pomiędzy danymi wierzchołkami. Jako algorytm 2-żal użyty został algorytm zaimplementowany w ramach pierwszego sprawozdania. Każdy z algorytmów uruchomiony został 100 razy. Dla algorytmu 2-żal w każdej ze 100 iteracji wybierany był po kolei każdy wierzchołek początkowy jako start pierwszego cyklu i najdalszy od niego wierzchołek jako start drugiego cyklu. Dla algorytmu, w którym rozwiązanie startowe jest losowe w każdej ze 100 iteracji rozwiązanie początkowe było na nowo losowane.
 
+W liście możliwych ruchów znajdują się ruchy oznaczające wymianę wierzchołków pomiędzy cyklami oraz w zależności od rozpatrywanego rodzaju sąsiedztwa:
+- ruchy oznaczające wymianę wierzchołków w ramach jednego cyklu
+- ruchy oznaczające wymianę krawędzi w cyklu
+
 W poniższych pseudokodach wykorzystana została notacja:
 - distances[a][b] - oznacza odległość pomiędzy punktami `a` i `b`
 
@@ -282,13 +286,139 @@ W tabeli przedstawione zostały najlepsze, średnie i najgorsze wyniki dla zbada
 
 W tabeli poniżej przedstawione zostały czasu wykonania poszczególnych algorytmów w milisekundach:
 
-```
-TODO tabelka z czasami
-```
+<center>
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;}
+.tg td{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+  overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg th{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+  font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
+.tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
+</style>
+<table class="tg">
+<thead>
+  <tr>
+    <th class="tg-0pky"></th>
+    <th class="tg-0pky"></th>
+    <th class="tg-0pky"></th>
+    <th class="tg-0pky" colspan="3">kroA100</th>
+    <th class="tg-0pky" colspan="3">kroB100</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky"></td>
+    <td class="tg-c3ow" colspan="6">czas [ms]</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">Rozwiązanie początkowe</td>
+    <td class="tg-0pky">Przeszukiwanie</td>
+    <td class="tg-0pky">Sąsiedztwo</td>
+    <td class="tg-0pky">min</td>
+    <td class="tg-0pky">średnia</td>
+    <td class="tg-0pky">max</td>
+    <td class="tg-0pky">min</td>
+    <td class="tg-0pky">średnia</td>
+    <td class="tg-0pky">max</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">Losowe</td>
+    <td class="tg-0pky">Zachłanne</td>
+    <td class="tg-0pky">Wierzchołki</td>
+    <td class="tg-0pky">264.53</td>
+    <td class="tg-0pky">343.83</td>
+    <td class="tg-0pky">516.78</td>
+    <td class="tg-0pky">254.95</td>
+    <td class="tg-0pky">333.27</td>
+    <td class="tg-0pky">438.70</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky">Krawędzie</td>
+    <td class="tg-0pky">285.80</td>
+    <td class="tg-0pky">336.63</td>
+    <td class="tg-0pky">421.87</td>
+    <td class="tg-0pky">256.338</td>
+    <td class="tg-0pky">331.508</td>
+    <td class="tg-0pky">391.19</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky">Strome</td>
+    <td class="tg-0pky">Wierzchołki</td>
+    <td class="tg-0pky">68.68</td>
+    <td class="tg-0pky">97.81</td>
+    <td class="tg-0pky">133.38</td>
+    <td class="tg-0pky">78.32</td>
+    <td class="tg-0pky">99.04</td>
+    <td class="tg-0pky">136.48</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky">Krawędzie</td>
+    <td class="tg-0pky">64.20</td>
+    <td class="tg-0pky">78.66</td>
+    <td class="tg-0pky">110.12</td>
+    <td class="tg-0pky">64.89</td>
+    <td class="tg-0pky">80.663</td>
+    <td class="tg-0pky">110.76</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">2-żal</td>
+    <td class="tg-0pky">Zachłanne</td>
+    <td class="tg-0pky">Wierzchołki</td>
+    <td class="tg-0pky">2.44</td>
+    <td class="tg-0pky">11.17</td>
+    <td class="tg-0pky">40.31</td>
+    <td class="tg-0pky">2.37</td>
+    <td class="tg-0pky">11.72</td>
+    <td class="tg-0pky">30.74</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky">Krawędzie</td>
+    <td class="tg-0pky">2.49</td>
+    <td class="tg-0pky">15.27</td>
+    <td class="tg-0pky">46.66</td>
+    <td class="tg-0pky">5.56</td>
+    <td class="tg-0pky">17.78</td>
+    <td class="tg-0pky">39.18</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky">Strome</td>
+    <td class="tg-0pky">Wierzchołki</td>
+    <td class="tg-0pky">1.61</td>
+    <td class="tg-0pky">7.40</td>
+    <td class="tg-0pky">19.35</td>
+    <td class="tg-0pky">1.62</td>
+    <td class="tg-0pky">7.72</td>
+    <td class="tg-0pky">17.55</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky"></td>
+    <td class="tg-0pky">Krawędzie</td>
+    <td class="tg-0pky">1.41</td>
+    <td class="tg-0pky">8.66</td>
+    <td class="tg-0pky">18.31</td>
+    <td class="tg-0pky">3.52</td>
+    <td class="tg-0pky">10.33</td>
+    <td class="tg-0pky">21.34</td>
+  </tr>
+</tbody>
+</table>
+</center>
 
 Poniżej umieszczone zostały wizualizacje najlepszych z uzyskanych wyników:
 
-### kroA100.tsp
+## Wizualizacja kroA100.tsp
 
 Losowe          |  Losowe z losowym błądzeniem
 :-------------------------:|:-------------------------:
@@ -298,6 +428,7 @@ Losowe, zachłanne, krawędzie         |  Losowe, zachłanne, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroA100/random/greedy/edges/map.png)  |  ![](./out/kroA100/random/greedy/vertices/map.png)
 
+<br><br><br>
 Losowe, strome, krawędzie           |  Losowe, strome, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroA100/random/steepest/edges/map.png)  |  ![](./out/kroA100/random/steepest/vertices/map.png)
@@ -306,15 +437,16 @@ Losowe, strome, krawędzie           |  Losowe, strome, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroA100/regret/none/edges/map.png)  |  ![](./out/kroA100/regret/randomWalk/edges/map.png)
 
-2-żal , zachłanne, krawędzie         |  2-żal , zachłanne, wierzchołki
+2-żal, zachłanne, krawędzie         |  2-żal, zachłanne, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroA100/regret/greedy/edges/map.png)  |  ![](./out/kroA100/regret/greedy/vertices/map.png)
 
-2-żal , strome, krawędzie           |  2-żal , strome, wierzchołki
+<br><br><br>
+2-żal, strome, krawędzie           |  2-żal, strome, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroA100/regret/steepest/edges/map.png)  |  ![](./out/kroA100/regret/steepest/vertices/map.png)
 
-### kroB100.tsp
+## Wizualizacja kroB100.tsp
 
 Losowe         |  Losowe z losowym błądzeniem
 :-------------------------:|:-------------------------:
@@ -332,13 +464,19 @@ Losowe, strome, krawędzie            |  Losowe, strome, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroB100/regret/none/edges/map.png)  |  ![](./out/kroB100/regret/randomWalk/edges/map.png)
 
-2-żal , zachłanne, krawędzie         |  2-żal , zachłanne, wierzchołki
+2-żal, zachłanne, krawędzie         |  2-żal, zachłanne, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroB100/regret/greedy/edges/map.png)  |  ![](./out/kroB100/regret/greedy/vertices/map.png)
 
-2-żal , strome, krawędzie            |  2-żal , strome, wierzchołki
+<br><br><br><br><br><br><br>
+2-żal, strome, krawędzie            |  2-żal, strome, wierzchołki
 :-------------------------:|:-------------------------:
 ![](./out/kroB100/regret/steepest/edges/map.png)  |  ![](./out/kroB100/regret/steepest/vertices/map.png)
 
 ## Wnioski
 
+1. Lokalne przeszukiwanie jest efektywną metodą poprawy rozwiązania bazowego. W każdym przypadku udało się poprawić rozwiązanie wygenerowane jako startowe. Dla rozwiązań losowych jest to spora poprawa - w średnim przypadku o 140 tysięcy jednostek (z 170 tysięcy do 30 tysięcy), a dla heurystyki 2-żalu o 1000 jednostek (z 26 tysięcy do 25 tysięcy).
+2. W rozpatrywanym problemie lepiej wypada sąsiedztwo definiowane jako wymiana dwóch krawędzi. Jest to prawdziwe dla każdego zbadanego przypadku.
+3. Algorytm stromego lokalnego przeszukiwania radzi sobie lepiej niż algorytm zachłannego lokalnego przeszukiwania w przypadku średnim dla zamiany krawędzi. Dla sąsiedztwa, w którym możliwa jest zamiana wierzchołków sytuacja nie jest tak klarowna - dla startowych rozwiązań losowych zachłanne radzi sobie lepiej i jest to różnica około 1500 jednostek, natomiast dla rozwiązań startowych wygenerowanych heurystyką 2-żal wyniki są do siebie bardzo zbliżone, a często nawet identyczne.
+4. Czasy wykonania algorytmów są w sporej mierze uzależnione od rozwiązania startowego. Dla rozwiązań losowych istnieje dużo ruchów, które zdolne są je poprawić, dlatego przetwarzanie trwa o wiele dłużej niż dla rozwiązania startowego 2-żal, gdzie jest mało ruchów, które można wykonać i są one w stanie poprawić ogólny wynik.
+5. Różnica w czasie działania pomiędzy algorytmem zachłannym, a stromym wynika z tego, że w przeszukiwaniu zachłannym rozwiązanie poprawiane jest małymi krokami - mimo tego, że nie szukamy lokalnie najlepszej poprawy, tylko akceptujemy pierwszą, którą znajdziemy, to wykonujemy tych popraw bardzo dużo, a przez to często zmieniamy cykle. W przeszukiwaniu stromym podejmujemy lokalnie najlepsze ruchy, więc mimo tego że musimy policzyć dla każdego deltę, to wykonujemy jedynie jeden ruch, który mocno poprawia rozwiązanie. Stąd też różnica, która istnieje w czasie wykonywania.
