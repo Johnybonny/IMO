@@ -10,7 +10,7 @@ W ramach zadania należało przeprowadzić badania dotyczące lokalnego przeszuk
 - różne rodzaje sąsiedztwa: zamianę wierzchołków oraz krawędzi,
 - różne rodzaje przeszukiwania: zachłanne oraz strome.
 
-Łącznie uzyskano więc 8 różnych wyników dla każdej z instancji. Dodatkowo przeprowadzono również badanie losowego błądzenia, które polega na wykonywaniu losowych ruchów. Czas trwania takiego błądzenia został ustalony jak średnio najwolniejsza z wersji lokalnego przeszukiwania.
+Łącznie uzyskano więc 8 różnych wyników dla każdej z instancji. Dodatkowo przeprowadzono również badanie losowego błądzenia, które polega na wykonywaniu losowych ruchów. Czas trwania takiego błądzenia został ustalony jako średnio najwolniejsza z wersji lokalnego przeszukiwania.
 
 #### Kod programu
 
@@ -477,6 +477,6 @@ Losowe, strome, krawędzie            |  Losowe, strome, wierzchołki
 
 1. Lokalne przeszukiwanie jest efektywną metodą poprawy rozwiązania bazowego. W każdym przypadku udało się poprawić rozwiązanie wygenerowane jako startowe. Dla rozwiązań losowych jest to spora poprawa - w średnim przypadku o 130 tysięcy jednostek (z 170 tysięcy do 40 tysięcy), a dla heurystyki 2-żalu o 1000 jednostek (z 26 tysięcy do 25 tysięcy).
 2. W rozpatrywanym problemie lepiej wypada sąsiedztwo definiowane jako wymiana dwóch krawędzi. Jest to prawdziwe dla każdego zbadanego przypadku.
-3. Algorytm stromego lokalnego przeszukiwania radzi sobie lepiej niż algorytm zachłannego lokalnego przeszukiwania w przypadku średnim dla zamiany krawędzi. Dla sąsiedztwa, w którym możliwa jest zamiana wierzchołków sytuacja nie jest tak klarowna - dla startowych rozwiązań losowych zachłanne radzi sobie lepiej i jest to różnica około 1500 jednostek, natomiast dla rozwiązań startowych wygenerowanych heurystyką 2-żal wyniki są do siebie bardzo zbliżone, a często nawet identyczne.
+3. Algorytm stromego lokalnego przeszukiwania radzi sobie lepiej niż algorytm zachłannego lokalnego przeszukiwania w przypadku średnim dla zamiany krawędzi. Dla sąsiedztwa, w którym możliwa jest zamiana wierzchołków sytuacja nie jest tak klarowna - dla startowych rozwiązań losowych algorytm zachłanny radzi sobie lepiej i jest to różnica około 1500 jednostek, natomiast dla rozwiązań startowych wygenerowanych heurystyką 2-żal wyniki są do siebie bardzo zbliżone, a często nawet identyczne.
 4. Czasy wykonania algorytmów są w sporej mierze uzależnione od rozwiązania startowego. Dla rozwiązań losowych istnieje dużo ruchów, które zdolne są je poprawić, dlatego przetwarzanie trwa o wiele dłużej niż dla rozwiązania startowego 2-żal, gdzie jest mało ruchów, które można wykonać i są one w stanie poprawić ogólny wynik.
 5. Różnica w czasie działania pomiędzy algorytmem zachłannym, a stromym wynika z tego, że w przeszukiwaniu zachłannym rozwiązanie poprawiane jest małymi krokami - mimo tego, że nie szukamy lokalnie najlepszej poprawy, tylko akceptujemy pierwszą, którą znajdziemy, to wykonujemy tych popraw bardzo dużo, a przez to często zmieniamy cykle. W przeszukiwaniu stromym podejmujemy lokalnie najlepsze ruchy, więc mimo tego że musimy policzyć dla każdego deltę, to wykonujemy jedynie jeden ruch, który mocno poprawia rozwiązanie.
