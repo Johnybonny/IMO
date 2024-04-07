@@ -582,18 +582,20 @@ pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vec
         sum += score;
     }
 
+    int minTime = *min_element(times.begin(), times.end());
+    int maxTime = *max_element(times.begin(), times.end());
     float const count = static_cast<float>(times.size());
     int averageTime = int(reduce(times.begin(), times.end()) / count);
 
-    return {bestCycles, {bestResult, int(sum/results.size()), worstResult, averageTime}};
+    return {bestCycles, {bestResult, int(sum/results.size()), worstResult, minTime, averageTime, maxTime}};
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc != 6)
+    if (argc != 8)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <random|regret>";
-        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges> <maximum random walk time>" << endl;
+        cerr << " <steepest|greedy|randomWalk|none> <vertices|edges> <maximum random walk time> <output_filename_1> <output_filename_2>" << endl;
         return 1;
     }
 
@@ -630,7 +632,7 @@ int main(int argc, char* argv[])
     }
 
     // Random walk time
-    int randmoWalkTime = atoi(argv[5]);
+    int randomWalkTime = atoi(argv[5]);
 
     srand(time(NULL));
     vector<vector<int>> allPossibleMoves = generateMoves(distances.size() / 2, isVertices, distances);
@@ -638,7 +640,7 @@ int main(int argc, char* argv[])
     vector<int> times = {};
     for (int iteration = 0; iteration < distances.size(); iteration++)
     {
-        cout << iteration << "%\n";
+        // cout << iteration << "%\n";
         // Generate initial cycles
         vector<vector<int>> cyclesPoints;
         if (string(argv[2]) == "regret")
@@ -668,7 +670,7 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[3]) == "randomWalk")
         {
-            randomWalkResult = randomWalk(cyclesPoints, distances, 15000, allPossibleMoves);
+            randomWalkResult = randomWalk(cyclesPoints, distances, randomWalkTime, allPossibleMoves);
             cyclesPoints = randomWalkResult.first;
         }
         else if (string(argv[3]) == "none")
@@ -687,11 +689,10 @@ int main(int argc, char* argv[])
 
     // statistics{<best cycles points>, {min, mean, max, avg time}}
     pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances, times);
-    cout << "\nMin: " << statistics.second[0] << "\tMean: " << statistics.second[1];
-    cout << "\tMax: " << statistics.second[2] << "\n";
-    cout << "Average time: " << statistics.second[3] << "\n\n";
+    cout << "Values:\tMin: " << statistics.second[0] << "\tMean: " << statistics.second[1] << "\tMax: " << statistics.second[2] << "\n";
+    cout << "Time:\tMin: " << statistics.second[3] << "\tMean: " << statistics.second[4] << "\tMax: " << statistics.second[5] << "\n";
 
-    saveCycleToFile(statistics.first, "file1.txt", "file2.txt");
+    saveCycleToFile(statistics.first, argv[6], argv[7]);
 
     return 0;
 }

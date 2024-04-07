@@ -11,8 +11,15 @@ source venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 2. Run (inside the python's *venv*)
+
+- Lab1
 ```
 cd Lab1
+make run
+```
+- Lab2
+```
+cd Lab2
 make run
 ```
 3. Results
