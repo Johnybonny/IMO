@@ -463,10 +463,34 @@ int main(int argc, char* argv[])
         }
     }
 
-    srand(time(NULL));
-    vector<vector<int>> allPossibleMoves = generateMoves(distances.size() / 2, distances);
     vector<vector<vector<int>>> results = {};
     vector<int> times = {};
+    if (string(argv[2]) == "regret")
+    {
+        pair<vector<vector<int>>, int> regretResult;
+        int bestScore = BIG_M;
+        vector<vector<int>> bestCycles;
+        for (int firstPoint = 0; firstPoint < distances.size(); firstPoint++)
+        {
+            cout << (firstPoint + 1) * (100.0 / distances.size()) << "%\n";
+            chrono::steady_clock::time_point beginTimeMeasurement = chrono::steady_clock::now();
+            regretResult = regretHeuristics(distances, firstPoint, COST_WEIGHT);
+            chrono::steady_clock::time_point endTimeMeasurement = chrono::steady_clock::now();
+
+            times.push_back(chrono::duration_cast<std::chrono::microseconds>(endTimeMeasurement - beginTimeMeasurement).count());
+            results.push_back(regretResult.first);
+        }
+        // statistics{<best cycles points>, {min, mean, max, avg time}}
+        pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances, times);
+        cout << "Values:\tMin: " << statistics.second[0] << "\tMean: " << statistics.second[1] << "\tMax: " << statistics.second[2] << "\n";
+        cout << "Time:\tMin: " << statistics.second[3] << "\tMean: " << statistics.second[4] << "\tMax: " << statistics.second[5] << "\n";
+
+        saveCycleToFile(statistics.first, argv[3], argv[4]);
+        return 0;
+    }
+
+    srand(time(NULL));
+    vector<vector<int>> allPossibleMoves = generateMoves(distances.size() / 2, distances);
     for (int iteration = 0; iteration < NUM_OF_ITERATIONS; iteration++)
     {
         cout << (iteration + 1) * (100.0 / NUM_OF_ITERATIONS) << "%\n";
@@ -485,10 +509,6 @@ int main(int argc, char* argv[])
         else if (string(argv[2]) == "steepest")
         {
             steepest(cyclesPoints, distances, allPossibleMoves);
-        }
-        else if (string(argv[2]) == "regret")
-        {
-            cyclesPoints = regretHeuristics(distances, iteration, COST_WEIGHT).first;
         }
         else if (string(argv[2]) == "none")
         {
