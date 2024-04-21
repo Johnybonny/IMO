@@ -12,7 +12,7 @@
 #define BIG_M 1000000000
 #define COST_WEIGHT 0.6
 #define NUM_OF_CYCLES 2
-#define NUM_OF_ITERATIONS 10
+#define NUM_OF_ITERATIONS 1
 
 using namespace std;
 
@@ -104,6 +104,19 @@ int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& t
         }
     }
     return closestPoint;
+}
+
+void showCycles(const vector<vector<int>>& cycles)
+{
+    for (size_t i = 0; i < cycles.size(); i++)
+    {
+        cout << "Cycle no." << i << ": ";
+        for (size_t j = 0; j < cycles[i].size(); j++)
+        {
+            cout << cycles[i][j] << " ";
+        }
+        cout << "\n";
+    }
 }
 
 vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances, const int startingPoint)
@@ -308,30 +321,81 @@ int computeDeltaBasedOnMove(const vector<int>& move, vector<vector<int>>& cycles
     }
 }
 
+int computeDeltaBasedOnLMMove(const vector<int>& LMmove, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    int firstVertexIndex;
+    int secondVertexIndex;
+    switch (LMmove[0])
+    {
+    case 1:
+        firstVertexIndex = find(cyclesPoints[0].begin(), cyclesPoints[0].end(), LMmove[1])
+            - cyclesPoints[0].begin();
+        secondVertexIndex = find(cyclesPoints[1].begin(), cyclesPoints[1].end(), LMmove[3])
+            - cyclesPoints[1].begin();
+
+        return outsideVerticesExchange(cyclesPoints[0], cyclesPoints[1], firstVertexIndex, secondVertexIndex, distances);
+        break;
+    case 2:
+        firstVertexIndex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[1])
+            - cyclesPoints[LMmove[5]].begin();
+        secondVertexIndex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[3])
+            - cyclesPoints[LMmove[5]].begin();
+
+        return insideEdgesExchange(cyclesPoints[LMmove[5]], firstVertexIndex, secondVertexIndex, distances);
+        break;
+    default:
+        return BIG_M;
+        break;
+    }
+}
+
 vector<vector<int>> generateMoves(const int size, const vector<vector<int>>& distances)
 {
     // Create a vector of all possible moves
     vector<vector<int>> allPossibleMoves = {};
-    for (int move = 1; move < 3; move++)
+    for (int firstVertex = 0; firstVertex < size - 1; firstVertex++)
     {
-        for (int firstVertex = 0; firstVertex < size - 1; firstVertex++)
+        for (int secondVertex = firstVertex + 1; secondVertex < size; secondVertex++)
         {
-            for (int secondVertex = firstVertex + 1; secondVertex < size; secondVertex++)
+            for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
             {
-                if (move == 1)
-                {
-                    allPossibleMoves.push_back({move, firstVertex, secondVertex, 0});
-                }
-                else
-                {
-                    for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
-                    {
-                        allPossibleMoves.push_back({move, firstVertex, secondVertex, cycleIndex});
-                    }
-                }
+                allPossibleMoves.push_back({2, firstVertex, secondVertex, cycleIndex});
             }
         }
     }
+
+    for (int firstVertex = 0; firstVertex < size; firstVertex++)
+    {
+        for (int secondVertex = 0; secondVertex < size; secondVertex++)
+        {
+            for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+            {
+                allPossibleMoves.push_back({1, firstVertex, secondVertex, 0});
+            }
+        }
+    }
+
+
+    // for (int move = 1; move < 3; move++)
+    // {
+    //     for (int firstVertex = 0; firstVertex < size - 1; firstVertex++)
+    //     {
+    //         for (int secondVertex = firstVertex + 1; secondVertex < size; secondVertex++)
+    //         {
+    //             if (move == 1)
+    //             {
+    //                 allPossibleMoves.push_back({move, firstVertex, secondVertex, 0});
+    //             }
+    //             else
+    //             {
+    //                 for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+    //                 {
+    //                     allPossibleMoves.push_back({move, firstVertex, secondVertex, cycleIndex});
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     return allPossibleMoves;
 }
@@ -365,7 +429,59 @@ vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vect
     return newCyclesPoints;
 }
 
-void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, vector<vector<int>>& allPossibleMoves)
+vector<vector<int>> makeLMMove(const vector<vector<int>>& cyclesPoints, const vector<int>& LMmove)
+{
+    vector<vector<int>> newCyclesPoints = cyclesPoints;
+    if (LMmove[0] == 1)
+    {
+        int firstVertexIndex = find(cyclesPoints[0].begin(), cyclesPoints[0].end(), LMmove[1])
+        - cyclesPoints[0].begin();
+        int secondVertexIndex = find(cyclesPoints[1].begin(), cyclesPoints[1].end(), LMmove[3])
+            - cyclesPoints[1].begin();
+        newCyclesPoints[0][firstVertexIndex] = LMmove[3];
+        newCyclesPoints[1][secondVertexIndex] = LMmove[1];
+    }
+    else if (LMmove[0] == 2)
+    {
+        int firstVertexIndex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[1])
+            - cyclesPoints[LMmove[5]].begin();
+        int secondVertexIndex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[3])
+            - cyclesPoints[LMmove[5]].begin();
+        int firstVertexAfterIndex = (firstVertexIndex + 1) % cyclesPoints[LMmove[5]].size(); // 6
+        int secondVertexAfterIndex = (secondVertexIndex + 1) % cyclesPoints[LMmove[5]].size(); // 2
+
+        int current = firstVertexAfterIndex; // 6
+        int lastIndexToChange = secondVertexIndex; // 2
+
+        while(current != lastIndexToChange)
+        {
+            newCyclesPoints[LMmove[5]][current] = cyclesPoints[LMmove[5]][lastIndexToChange];
+            newCyclesPoints[LMmove[5]][lastIndexToChange] = cyclesPoints[LMmove[5]][current];
+
+            int difference;
+            if (current <= lastIndexToChange)
+            {
+                difference = lastIndexToChange - current;
+            }
+            else
+            {
+                difference = cyclesPoints[LMmove[5]].size() - current + lastIndexToChange;
+            }
+
+            if(difference == 1)
+            {
+                break;
+            }
+
+            lastIndexToChange = (lastIndexToChange - 1 + cyclesPoints[LMmove[5]].size()) % cyclesPoints[LMmove[5]].size();
+            current = (current + 1) % cyclesPoints[LMmove[5]].size();
+        }
+    }
+
+    return newCyclesPoints;
+}
+
+void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, const vector<vector<int>>& allPossibleMoves)
 {
     bool stopCondition = false;
     while (!stopCondition)
@@ -395,9 +511,286 @@ void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& dist
     }
 }
 
-void pastMoves(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+vector<int> translateMoveToLM(const vector<int>& move, vector<vector<int>>& cyclesPoints)
 {
-    cout << "Past moves algorithm is yet to be implemented\n";
+    if (move[0] == 1)
+    {
+        return vector<int>{
+            move[0],
+            cyclesPoints[0][move[1]],
+            0,
+            cyclesPoints[1][move[2]],
+            0,
+            0
+        };
+    }
+
+    return vector<int>{
+        move[0],
+        cyclesPoints[move[3]][move[1]],
+        cyclesPoints[move[3]][(move[1] + 1) % cyclesPoints[move[3]].size()],
+        cyclesPoints[move[3]][move[2]],
+        cyclesPoints[move[3]][(move[2] + 1) % cyclesPoints[move[3]].size()],
+        move[3]
+    };
+}
+
+vector<int> translateLMToMove(const vector<int>& LMmove, vector<vector<int>>& cyclesPoints)
+{
+
+    if (LMmove[0] == 1)
+    {
+        int firstVertex = find(cyclesPoints[0].begin(), cyclesPoints[0].end(), LMmove[1])
+            - cyclesPoints[0].begin();
+        int secondVertex = find(cyclesPoints[1].begin(), cyclesPoints[1].end(), LMmove[3])
+            - cyclesPoints[1].begin();
+
+        return vector<int>{
+            LMmove[0],
+            firstVertex,
+            secondVertex,
+            0
+        };
+    }
+
+    int firstVertex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[1])
+        - cyclesPoints[LMmove[5]].begin();
+    int secondVertex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[3])
+        - cyclesPoints[LMmove[5]].begin();
+
+    return vector<int>{
+        LMmove[0],
+        firstVertex,
+        secondVertex,
+        LMmove[5]
+    };
+}
+
+void addMoveToLM(vector<pair<vector<int>, int>>& LM, const vector<int>& LMmove, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    // vector<int> move = translateLMToMove(LMmove, cyclesPoints);
+    int delta = computeDeltaBasedOnLMMove(LMmove, cyclesPoints, distances);
+    if (delta < 0)
+    {
+        bool inserted = false;
+        if (LM.size() == 0)
+        {
+            LM.push_back({LMmove, delta});
+        }
+        else
+        {
+            for (int i = 0; i < LM.size(); i ++)
+            {
+                if (LM[i].second > delta)
+                {
+                    LM.insert(LM.begin() + i, {LMmove, delta});
+                    inserted = true;
+                    break;
+                }
+            }
+
+            if (!inserted)
+                LM.push_back({LMmove, delta});
+        }
+    }
+}
+
+int applicableStatus(const vector<int>& LMmove, vector<vector<int>>& cyclesPoints)
+{
+    // Exchanging edges                          | Exchanging vertices
+    // 0 - Edges are present in correct order    | Vertices are in different cycles
+    // 1 - Edges are not present in the solution | Vertices are in the same cycle
+    // 2 - Edges are present but in wrong order  | -
+
+    if (LMmove[0] == 1)
+    {
+        bool firstPointInFirstCycle = true;
+        bool secondPointInSecondCycle = true;
+        if (find(cyclesPoints[0].begin(), cyclesPoints[0].end(), LMmove[1]) - cyclesPoints[0].begin() == cyclesPoints[0].size())
+        {
+            firstPointInFirstCycle = false;
+        }
+        if (find(cyclesPoints[1].begin(), cyclesPoints[1].end(), LMmove[3]) - cyclesPoints[1].begin() == cyclesPoints[1].size())
+        {
+            secondPointInSecondCycle = false;
+        }
+
+
+        // Vertices are in different cycles
+        if (firstPointInFirstCycle && secondPointInSecondCycle)
+            return 0;
+        else
+            return 1;
+
+    }
+    else
+    {
+        int firstEdgeA = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[1])
+            - cyclesPoints[LMmove[5]].begin();
+        int firstEdgeB = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[2])
+            - cyclesPoints[LMmove[5]].begin();
+        int secondEdgeA = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[3])
+            - cyclesPoints[LMmove[5]].begin();
+        int secondEdgeB = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[4])
+            - cyclesPoints[LMmove[5]].begin();
+
+        int cycleSize = cyclesPoints[LMmove[5]].size();
+
+        // One of the points is not present in the solution
+        if ((firstEdgeA == cycleSize)
+            || (firstEdgeB == cycleSize)
+            || (secondEdgeA == cycleSize)
+            || (secondEdgeB == cycleSize))
+        {
+            return 1;
+        }
+
+        // Edges are present in correct order
+        if (((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == 1)
+                && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == 1))
+            // || (((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == cycleSize - 1)
+            //     && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == cycleSize - 1)))
+        {
+            return 0;
+        }
+
+        // Edges are present but in wrong order
+        if ((((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == 1)
+                && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == cycleSize - 1))
+            || (((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == cycleSize - 1)
+                && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == 1)))
+        {
+            return 2;
+        }
+
+        // Edges are not present in the solution
+        return 1;
+    }
+}
+
+void pastMoves(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, const vector<vector<int>>& allPossibleMoves)
+{
+    // move{<type>, <A>, <B>, <cycle index>}
+    // type possible values:
+    //   1 - exchanging vertices between two cycles
+    //       move{1, <first vertex cycle index>, <second vertex cycle index>, 0}
+    //   2 - exchanging edges in one cycle
+    //       move{2, <first edge start index>, <second edge start index>, <cycle index>}
+
+    // LMmove{<type>, <A>, <B>, <C>, <D>, <cycle index>}
+    // type possible values:
+    //   1 - exchanging vertices between two cycles
+    //       LMmove{1, <first vertex global index>, 0, <second vertex global index>, 0, 0}
+    //   2 - exchanging edges in one cycle
+    //       LMmove{2, <first edge start>, <first edge end>, <second edge start>, <second edge end>, <cycle index>}
+
+    // Initialize the LM list
+    // LM{{LMmove1, delta1}, {LMmove2, delta2}, ... }
+    vector<pair<vector<int>, int>> LM{};
+    for (int i = 0; i < allPossibleMoves.size(); i++)
+    {
+        vector<int> LMmove = translateMoveToLM(allPossibleMoves[i], cyclesPoints);
+        addMoveToLM(LM, LMmove, cyclesPoints, distances);
+    }
+
+    bool stopCondition = false;
+    while (!stopCondition)
+    {
+        stopCondition = true;
+        int LMmoveIndex = 0;
+        while (LMmoveIndex < LM.size())
+        {
+            vector<int> LMmove = LM[LMmoveIndex].first;
+            int applicabilityStatus = applicableStatus(LMmove, cyclesPoints);
+            if ((applicabilityStatus == 0) && (computeDeltaBasedOnLMMove(LMmove, cyclesPoints, distances) < 0))
+            {
+                vector<int> move = translateLMToMove(LMmove, cyclesPoints);
+                cyclesPoints = makeLMMove(cyclesPoints, LMmove);
+
+                LM.erase(LM.begin() + LMmoveIndex);
+
+                // Add new moves to LM
+                vector<int> newMove;
+                vector<int> newLMmove;
+                int newMoveDelta;
+                if (LMmove[0] == 1)
+                {
+                    for (int i = 0; i < cyclesPoints[0].size(); i++)
+                    {
+                        // New vertices exchanges in first cycle
+                        if (cyclesPoints[0][i] != LMmove[1])
+                        {
+                            newLMmove = {1, cyclesPoints[0][i], 0, LMmove[1], 0, 0};
+                            addMoveToLM(LM, newLMmove, cyclesPoints, distances);
+                        }
+
+                        // New vertices exchanges in second cycle
+                        if (cyclesPoints[1][i] != LMmove[3])
+                        {
+                            newLMmove = {1, LMmove[3], 0, cyclesPoints[1][i], 0, 0};
+                            addMoveToLM(LM, newLMmove, cyclesPoints, distances);
+                        }
+
+                        // New edges exchanges in first cycle
+                        if (int((move[2] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()) != i)
+                        {
+                            newMove = {2, int((move[2] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()), i, 0};
+                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
+                        }
+                        if (move[2] != i)
+                        {
+                            newMove = {2, move[2], i, 0};
+                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
+                        }
+
+                        // New edges exchanges in second cycle
+                        if (int((move[1] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()) != i)
+                        {
+                            newMove = {2, int((move[1] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()), i, 1};
+                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
+                        }
+
+                        if (move[1] != i)
+                        {
+                            newMove = {2, move[1], i, 1};
+                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
+                        }
+                    }
+                }
+                else if (LMmove[0] == 2)
+                {
+                    for (int i = 0; i < cyclesPoints[0].size(); i++)
+                    {
+                        // New edges exchanges in the cycle the move was made
+                        if ( move[1] != i)
+                        {
+                            newMove = {2, move[1], i, move[3]};
+
+                            newLMmove = {2, LMmove[1], LMmove[3], cyclesPoints[LMmove[5]][i], cyclesPoints[LMmove[5]][(i + 1) % cyclesPoints[LMmove[5]].size()], LMmove[5]};
+                            addMoveToLM(LM, newLMmove, cyclesPoints, distances);
+                        }
+
+                        if ( int((move[1] + 1) % cyclesPoints[0].size()) != i)
+                        {
+                            newMove = {2, int((move[1] + 1) % cyclesPoints[0].size()), i, move[3]};
+                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
+                        }
+                    }
+                }
+
+                stopCondition = false;
+                break;
+            }
+            else if (applicabilityStatus == 1)
+            {
+                LM.erase(LM.begin() + LMmoveIndex);
+            }
+            else if ((applicabilityStatus == 2) || (computeDeltaBasedOnLMMove(LMmove, cyclesPoints, distances) >= 0))
+            {
+                LMmoveIndex++;
+            }
+        }
+    }
 }
 
 void candidates(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
@@ -497,10 +890,11 @@ int main(int argc, char* argv[])
 
         // Start algorithm
         vector<vector<int>> cyclesPoints = randomCycle(distances);
+        showCycles(cyclesPoints);
         chrono::steady_clock::time_point beginTimeMeasurement = chrono::steady_clock::now();
         if (string(argv[2]) == "pastMoves")
         {
-            pastMoves(cyclesPoints, distances);
+            pastMoves(cyclesPoints, distances, allPossibleMoves);
         }
         else if (string(argv[2]) == "candidates")
         {
