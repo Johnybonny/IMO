@@ -12,7 +12,7 @@
 #define BIG_M 1000000000
 #define COST_WEIGHT 0.6
 #define NUM_OF_CYCLES 2
-#define NUM_OF_ITERATIONS 1
+#define NUM_OF_ITERATIONS 100
 
 using namespace std;
 
@@ -793,9 +793,144 @@ void pastMoves(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& dis
     }
 }
 
-void candidates(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+bool comparePairs(const pair<int, int>& a, const pair<int, int>& b) {
+    return a.first < b.first; // Sort based on the first value of the pair
+}
+
+vector<vector<int>> findClosestNeighbors(const vector<vector<int>>& distances, int k)
 {
-    cout << "Candidates algorithm is yet to be implemented\n";
+    int n = distances.size();
+    vector<vector<int>> closest(n);
+
+    for (int i = 0; i < n; i++)
+    {
+        // Create a vector of pairs (distance, vertex index)
+        vector<pair<int, int>> distIndexPairs;
+        for (int j = 0; j < n; j++)
+        {
+            if (i != j)
+            {
+                distIndexPairs.push_back(make_pair(distances[i][j], j));
+            }
+        }
+
+        // Sort the pairs based on distance
+        sort(distIndexPairs.begin(), distIndexPairs.end(), comparePairs);
+
+        // Take the k closest neighbors and store their vertex indices
+        for (int j = 0; j < k && j < distIndexPairs.size(); j++)
+        {
+            closest[i].push_back(distIndexPairs[j].second);
+        }
+    }
+
+    return closest;
+}
+
+void candidates(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, const vector<vector<int>>& closestNeighbors)
+{
+    bool stopCondition = false;
+    while (!stopCondition)
+    {
+        stopCondition = true;
+        int bestDelta = BIG_M;
+        vector<int> bestMove;
+        for (int point = 0; point < distances.size(); point++)
+        {
+            for (int neighbor = 0; neighbor < closestNeighbors[point].size(); neighbor++)
+            {
+                int firstInFirst = find(cyclesPoints[0].begin(), cyclesPoints[0].end(), point) - cyclesPoints[0].begin();
+                int secondInFirst = find(cyclesPoints[0].begin(), cyclesPoints[0].end(), closestNeighbors[point][neighbor]) - cyclesPoints[0].begin();
+                int firstInSecond = find(cyclesPoints[1].begin(), cyclesPoints[1].end(), point) - cyclesPoints[1].begin();
+                int secondInSecond = find(cyclesPoints[1].begin(), cyclesPoints[1].end(), closestNeighbors[point][neighbor]) - cyclesPoints[1].begin();
+                bool firstPointInFirstCycle = firstInFirst < cyclesPoints[0].size();
+                bool secondPointInFirstCycle = secondInFirst < cyclesPoints[0].size();
+
+                vector<int> move;
+                int delta;
+                if (firstPointInFirstCycle && secondPointInFirstCycle)
+                {
+                    // Exchanging edges in first cycle
+                    move = {2, firstInFirst, secondInFirst, 0};
+                    delta = computeDeltaBasedOnMove(move, cyclesPoints, distances);
+                    if ((delta < 0) && (delta < bestDelta))
+                    {
+                        bestMove = move;
+                        bestDelta = delta;
+                        stopCondition = false;
+                    }
+
+                    move = {2,
+                        int((firstInFirst - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()),
+                        int((secondInFirst- 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()),
+                        0};
+                    delta = computeDeltaBasedOnMove(move, cyclesPoints, distances);
+                    if ((delta < 0) && (delta < bestDelta))
+                    {
+                        bestMove = move;
+                        bestDelta = delta;
+                        stopCondition = false;
+                    }
+
+                }
+                else if ((!firstPointInFirstCycle) && (!secondPointInFirstCycle))
+                {
+                    // Exchanging edges in second cycle
+                    move = {2, firstInSecond, secondInSecond, 1};
+                    delta = computeDeltaBasedOnMove(move, cyclesPoints, distances);
+                    if ((delta < 0) && (delta < bestDelta))
+                    {
+                        bestMove = move;
+                        bestDelta = delta;
+                        stopCondition = false;
+                    }
+
+                    move = {2,
+                        int((firstInSecond - 1 + cyclesPoints[1].size()) % cyclesPoints[1].size()),
+                        int((secondInSecond - 1 + cyclesPoints[1].size()) % cyclesPoints[1].size()),
+                        1};
+                    delta = computeDeltaBasedOnMove(move, cyclesPoints, distances);
+                    if ((delta < 0) && (delta < bestDelta))
+                    {
+                        bestMove = move;
+                        bestDelta = delta;
+                        stopCondition = false;
+                    }
+
+                }
+                else if (firstPointInFirstCycle && !secondPointInFirstCycle)
+                {
+                    // Exchanging vertices (first point in first cycle, second in second)
+                    move = {1, firstInFirst, secondInSecond, 0};
+                    delta = computeDeltaBasedOnMove(move, cyclesPoints, distances);
+                    if ((delta < 0) && (delta < bestDelta))
+                    {
+                        bestMove = move;
+                        bestDelta = delta;
+                        stopCondition = false;
+                    }
+
+                }
+                else if (!firstPointInFirstCycle && secondPointInFirstCycle)
+                {
+                    // Exchanging vertices (first point in second cycle, second in first)
+                    move = {1, firstInSecond, secondInFirst, 0};
+                    delta = computeDeltaBasedOnMove(move, cyclesPoints, distances);
+                    if ((delta < 0) && (delta < bestDelta))
+                    {
+                        bestMove = move;
+                        bestDelta = delta;
+                        stopCondition = false;
+                    }
+                }
+            }
+        }
+
+        if (!stopCondition)
+        {
+            cyclesPoints = makeLMMove(cyclesPoints, translateMoveToLM(bestMove, cyclesPoints));
+        }
+    }
 }
 
 pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vector<int>>>& results,
@@ -810,12 +945,12 @@ pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vec
         int score = getLengthBasedOnPoints(results[res][0], distances)
             + getLengthBasedOnPoints(results[res][1], distances);
 
-        if (score < bestResult)
+        if (score <= bestResult)
         {
             bestCycles = results[res];
             bestResult = score;
         }
-        else if (score > worstResult)
+        else if (score >= worstResult)
         {
             worstResult = score;
         }
@@ -833,10 +968,10 @@ pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vec
 
 int main(int argc, char* argv[])
 {
-    if (argc != 5)
+    if (argc != 6)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <pastMoves|candidates|steepest|regret>";
-        cerr << "<output_filename_1> <output_filename_2>" << endl;
+        cerr << " <output_filename_1> <output_filename_2> <number_of_neighbors>" << endl;
         return 1;
     }
 
@@ -890,7 +1025,7 @@ int main(int argc, char* argv[])
 
         // Start algorithm
         vector<vector<int>> cyclesPoints = randomCycle(distances);
-        showCycles(cyclesPoints);
+        // showCycles(cyclesPoints);
         chrono::steady_clock::time_point beginTimeMeasurement = chrono::steady_clock::now();
         if (string(argv[2]) == "pastMoves")
         {
@@ -898,7 +1033,8 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[2]) == "candidates")
         {
-            candidates(cyclesPoints, distances);
+            vector<vector<int>> closestNeighbors = findClosestNeighbors(distances, atoi(argv[5]));
+            candidates(cyclesPoints, distances, closestNeighbors);
         }
         else if (string(argv[2]) == "steepest")
         {
