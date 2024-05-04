@@ -144,12 +144,12 @@ W tabeli przedstawione zostały najlepsze, średnie i najgorsze wyniki dla zbada
   </tr>
   <tr>
     <td class="tg-73oq">oceny poprzednich ruchów</td>
-    <td class="tg-wp8o">41053</td>
-    <td class="tg-wp8o">42062</td>
-    <td class="tg-wp8o">43615</td>
-    <td class="tg-wp8o">42252</td>
-    <td class="tg-wp8o">43461</td>
-    <td class="tg-wp8o">45718</td>
+    <td class="tg-wp8o">37407</td>
+    <td class="tg-wp8o">40924</td>
+    <td class="tg-wp8o">45363</td>
+    <td class="tg-wp8o">37369</td>
+    <td class="tg-wp8o">40942</td>
+    <td class="tg-wp8o">44831</td>
   </tr>
   <tr>
     <td class="tg-73oq">ruchy kandydackie (k=10)</td>
@@ -212,12 +212,12 @@ W tabeli poniżej przedstawione zostały czasy wykonania poszczególnych algoryt
   </tr>
   <tr>
     <td class="tg-73oq">oceny poprzednich ruchów</td>
-    <td class="tg-wp8o">558</td>
-    <td class="tg-wp8o">741</td>
-    <td class="tg-wp8o">1034</td>
-    <td class="tg-wp8o">570</td>
-    <td class="tg-wp8o">759</td>
-    <td class="tg-wp8o">988</td>
+    <td class="tg-wp8o">9156</td>
+    <td class="tg-wp8o">12509</td>
+    <td class="tg-wp8o">16546</td>
+    <td class="tg-wp8o">9091</td>
+    <td class="tg-wp8o">11660</td>
+    <td class="tg-wp8o">14963</td>
   </tr>
   <tr>
     <td class="tg-73oq">ruchy kandydackie (k=10)</td>

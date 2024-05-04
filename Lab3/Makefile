@@ -3,9 +3,9 @@ compile:
 	g++ ./src/main.cpp -o ./out/bin/main.out
 
 calculate:
-	./out/bin/main.out data/kroB200.tsp candidates ./out/1.txt ./out/2.txt 10
+	./out/bin/main.out data/kroA200.tsp pastMoves ./out/1.txt ./out/2.txt 10
 map:
-	python3 ./src/draw.py data/kroB200.tsp candidate
+	python3 ./src/draw.py data/kroA200.tsp pastMoves
 
 run: compile calculate map
 	@echo "Done 🙌🎉"

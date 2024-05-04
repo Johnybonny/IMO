@@ -16,6 +16,37 @@
 
 using namespace std;
 
+enum MoveType
+{
+    VerticesExchange,
+    EdgesExchange,
+};
+
+enum ApplicabilityStatus
+{
+    Applicable,
+    MaybeApplicable,
+    InApplicable,
+};
+
+struct Move
+{
+    MoveType type;
+    int beforeFirst;
+    int first;
+    int afterFirst;
+    int beforeSecond;
+    int second;
+    int afterSecond;
+    int cycle;
+
+    void show()
+    {
+        cout << type << " " << beforeFirst << " " << first << " " << afterFirst << " ";
+        cout << beforeSecond << " "<< second << " " << afterSecond << " " << cycle << "\n";
+    }
+};
+
 vector<vector<int>> parseInput(const string& filename)
 {
     vector<vector<int>> result;
@@ -117,6 +148,23 @@ void showCycles(const vector<vector<int>>& cycles)
         }
         cout << "\n";
     }
+}
+
+int indexOfPoint(int point, const vector<int>& cycle)
+{
+    return find(cycle.begin(), cycle.end(), point) - cycle.begin();
+}
+
+int cycleDirection(int a, int b, vector<int>& cycle)
+{
+    // 1 meaning a is before b, -1 meaning a is after b
+    if ((indexOfPoint(a, cycle) + 1) % cycle.size() == indexOfPoint(b, cycle))
+        return 1;
+    else if ((indexOfPoint(b, cycle) + 1) % cycle.size() == indexOfPoint(a, cycle))
+        return -1;
+
+    // Error - something is not correct
+    return 0;
 }
 
 vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances, const int startingPoint)
@@ -400,7 +448,7 @@ vector<vector<int>> generateMoves(const int size, const vector<vector<int>>& dis
     return allPossibleMoves;
 }
 
-vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const vector<int>& move)
+vector<vector<int>> makeMove2(const vector<vector<int>>& cyclesPoints, const vector<int>& move)
 {
     vector<vector<int>> newCyclesPoints = cyclesPoints;
     if (move[0] == 1)
@@ -481,6 +529,83 @@ vector<vector<int>> makeLMMove(const vector<vector<int>>& cyclesPoints, const ve
     return newCyclesPoints;
 }
 
+vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const Move& move)
+{
+    bool flag = false;
+
+    vector<vector<int>> newCyclesPoints = cyclesPoints;
+
+    if (move.type == VerticesExchange)
+    {
+        int firstVertexIndex = indexOfPoint(move.first, cyclesPoints[0]);
+        int secondVertexIndex = indexOfPoint(move.second, cyclesPoints[1]);
+
+        // Switch the points in cycles
+        newCyclesPoints[0][firstVertexIndex] = move.second;
+        newCyclesPoints[1][secondVertexIndex] = move.first;
+    }
+    else
+    {
+        int cycleSize = cyclesPoints[move.cycle].size();
+
+        int aPointIndex = indexOfPoint(move.first, cyclesPoints[move.cycle]);
+        int aPointAfterIndex = indexOfPoint(move.afterFirst, cyclesPoints[move.cycle]);
+
+        int bPointIndex = indexOfPoint(move.second, cyclesPoints[move.cycle]);
+        int bPointAfterIndex = indexOfPoint(move.afterSecond, cyclesPoints[move.cycle]);
+
+        // Decide wheter change the direction of edges between the end of first edge and the start of second
+        int distanceBetweenFront;
+        // Or to change the direction of edges between the end of second edge and the start of first
+        int distanceBetweenBack;
+        if (aPointAfterIndex < bPointIndex)
+        {
+            distanceBetweenFront = abs(aPointAfterIndex - bPointIndex);
+        }
+        else
+        {
+            distanceBetweenFront = abs(aPointAfterIndex - bPointIndex - cycleSize);
+        }
+        distanceBetweenBack = cycleSize - distanceBetweenFront - 2;
+
+        // Set start and end of the series to invert
+        int startIndex;
+        int endIndex;
+        if (distanceBetweenFront <= distanceBetweenBack)
+        {
+            startIndex = aPointAfterIndex;
+            endIndex = bPointIndex;
+        }
+        else
+        {
+            startIndex = bPointAfterIndex;
+            endIndex = aPointIndex;
+        }
+
+        bool normalOrder = startIndex <= endIndex;
+
+        // Switch the direction of all the vertices between start and end indices
+        bool stop = false;
+        do
+        {
+            newCyclesPoints[move.cycle][startIndex] = cyclesPoints[move.cycle][endIndex];
+            newCyclesPoints[move.cycle][endIndex] = cyclesPoints[move.cycle][startIndex];
+
+            endIndex = (endIndex - 1 + cycleSize) % cycleSize;
+            startIndex = (startIndex + 1) % cycleSize;
+
+            if ((normalOrder && startIndex >= endIndex && startIndex - endIndex <= 1)
+                || (!normalOrder && endIndex >= startIndex
+                    && (endIndex - startIndex == 1 || endIndex - startIndex == cycleSize - 1 || endIndex - startIndex == 0)))
+            {
+                stop = true;
+            }
+        } while (!stop);
+    }
+
+    return newCyclesPoints;
+}
+
 void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, const vector<vector<int>>& allPossibleMoves)
 {
     bool stopCondition = false;
@@ -506,7 +631,7 @@ void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& dist
 
         if (!stopCondition)
         {
-            cyclesPoints = makeMove(cyclesPoints, bestMove);
+            cyclesPoints = makeMove2(cyclesPoints, bestMove);
         }
     }
 }
@@ -535,266 +660,731 @@ vector<int> translateMoveToLM(const vector<int>& move, vector<vector<int>>& cycl
     };
 }
 
-vector<int> translateLMToMove(const vector<int>& LMmove, vector<vector<int>>& cyclesPoints)
+int verticesExchangeDelta(const Move& move, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
 {
+    int delta = 0;
 
-    if (LMmove[0] == 1)
-    {
-        int firstVertex = find(cyclesPoints[0].begin(), cyclesPoints[0].end(), LMmove[1])
-            - cyclesPoints[0].begin();
-        int secondVertex = find(cyclesPoints[1].begin(), cyclesPoints[1].end(), LMmove[3])
-            - cyclesPoints[1].begin();
+    int aPoint = move.first;
+    int aPointBefore = move.beforeFirst;
+    int aPointAfter = move.afterFirst;
 
-        return vector<int>{
-            LMmove[0],
-            firstVertex,
-            secondVertex,
-            0
-        };
-    }
+    int bPoint = move.second;
+    int bPointBefore = move.beforeSecond;
+    int bPointAfter = move.afterSecond;
 
-    int firstVertex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[1])
-        - cyclesPoints[LMmove[5]].begin();
-    int secondVertex = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[3])
-        - cyclesPoints[LMmove[5]].begin();
+    delta = delta - distances[aPointBefore][aPoint] - distances[aPoint][aPointAfter];
+    delta = delta - distances[bPointBefore][bPoint] - distances[bPoint][bPointAfter];
+    delta = delta + distances[aPointBefore][bPoint] + distances[aPointAfter][bPoint];
+    delta = delta + distances[bPointBefore][aPoint] + distances[bPointAfter][aPoint];
 
-    return vector<int>{
-        LMmove[0],
-        firstVertex,
-        secondVertex,
-        LMmove[5]
-    };
+    return delta;
 }
 
-void addMoveToLM(vector<pair<vector<int>, int>>& LM, const vector<int>& LMmove, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+int edgesExchangeDelta(const Move& move, const vector<vector<int>>& distances, vector<vector<int>>& cyclesPoints)
 {
-    // vector<int> move = translateLMToMove(LMmove, cyclesPoints);
-    int delta = computeDeltaBasedOnLMMove(LMmove, cyclesPoints, distances);
+    int delta = 0;
+
+    int aPoint = move.first;
+    int aPointAfter = move.afterFirst;
+
+    int bPoint = move.second;
+    int bPointAfter = move.afterSecond;
+
+    if (cycleDirection(aPoint, aPointAfter, cyclesPoints[move.cycle]) == cycleDirection(bPoint, bPointAfter, cyclesPoints[move.cycle]))
+    {
+        delta = delta - distances[aPoint][aPointAfter] - distances[bPoint][bPointAfter];
+        delta = delta + distances[aPoint][bPoint] + distances[aPointAfter][bPointAfter];
+    }
+    else
+    {
+        delta = delta - distances[aPoint][aPointAfter] - distances[bPoint][bPointAfter];
+        delta = delta + distances[aPoint][bPointAfter] + distances[aPointAfter][bPoint];
+    }
+
+    return delta;
+}
+
+int computeDelta(const Move& move, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    if (move.type == VerticesExchange)
+        return verticesExchangeDelta(move, cyclesPoints, distances);
+    else
+        return edgesExchangeDelta(move, distances, cyclesPoints);
+}
+
+int findPlaceForMove(vector<pair<Move, int>>& LM, int delta, int left, int right)
+{
+    int middle = (left + right) / 2;
+
+    if (left >= right)
+    {
+        if (LM[middle].second > delta)
+            return left;
+        else
+            return right + 1;
+    }
+
+    if (LM[middle].second == delta)
+        return middle;
+    else if (LM[middle].second > delta)
+        return findPlaceForMove(LM, delta, left, middle - 1);
+    else
+        return findPlaceForMove(LM, delta, middle + 1, right);
+}
+
+void addMoveToLM(vector<pair<Move, int>>& LM, const Move& move, vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    int delta = computeDelta(move, cyclesPoints, distances);
+
     if (delta < 0)
     {
-        bool inserted = false;
         if (LM.size() == 0)
         {
-            LM.push_back({LMmove, delta});
+            LM.push_back({move, delta});
         }
         else
         {
-            for (int i = 0; i < LM.size(); i ++)
-            {
-                if (LM[i].second > delta)
-                {
-                    LM.insert(LM.begin() + i, {LMmove, delta});
-                    inserted = true;
-                    break;
-                }
-            }
-
-            if (!inserted)
-                LM.push_back({LMmove, delta});
+            int whereToInsert = findPlaceForMove(LM, delta, 0, LM.size() - 1);
+            LM.insert(LM.begin() + whereToInsert, {move, delta});
         }
     }
 }
 
-int applicableStatus(const vector<int>& LMmove, vector<vector<int>>& cyclesPoints)
+vector<pair<Move, int>> initializeLM(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
 {
-    // Exchanging edges                          | Exchanging vertices
-    // 0 - Edges are present in correct order    | Vertices are in different cycles
-    // 1 - Edges are not present in the solution | Vertices are in the same cycle
-    // 2 - Edges are present but in wrong order  | -
+    vector<pair<Move, int>> LM;
 
-    if (LMmove[0] == 1)
+    // Add exchanging vertices a + 1 and b + 1
+    for (int a = 0; a < cyclesPoints[0].size(); a++)
     {
-        bool firstPointInFirstCycle = true;
-        bool secondPointInSecondCycle = true;
-        if (find(cyclesPoints[0].begin(), cyclesPoints[0].end(), LMmove[1]) - cyclesPoints[0].begin() == cyclesPoints[0].size())
+        for (int b = 0; b < cyclesPoints[1].size(); b++)
         {
-            firstPointInFirstCycle = false;
+            Move move = {
+                VerticesExchange,
+                cyclesPoints[0][a],
+                cyclesPoints[0][(a + 1) % cyclesPoints[0].size()],
+                cyclesPoints[0][(a + 2) % cyclesPoints[0].size()],
+                cyclesPoints[1][b],
+                cyclesPoints[1][(b + 1) % cyclesPoints[1].size()],
+                cyclesPoints[1][(b + 2) % cyclesPoints[1].size()],
+                0};
+            addMoveToLM(LM, move, cyclesPoints, distances);
         }
-        if (find(cyclesPoints[1].begin(), cyclesPoints[1].end(), LMmove[3]) - cyclesPoints[1].begin() == cyclesPoints[1].size())
+    }
+
+    // Add exchanging edges a+1 -> a+2 and b+1 -> b+2
+    for(int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+    {
+        for (int a = 0; a < cyclesPoints[0].size(); a++)
         {
-            secondPointInSecondCycle = false;
+            for (int b = 0; b < cyclesPoints[1].size(); b++)
+            {
+                if (a + 1 != b + 1)
+                {
+                    Move move = {EdgesExchange,
+                        cyclesPoints[cycleIndex][a],
+                        cyclesPoints[cycleIndex][(a + 1) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][(a + 2) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][b],
+                        cyclesPoints[cycleIndex][(b + 1) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][(b + 2) % cyclesPoints[cycleIndex].size()],
+                        cycleIndex};
+                    addMoveToLM(LM, move, cyclesPoints, distances);
+
+                    Move invertedEdgeMove = {EdgesExchange,
+                        cyclesPoints[cycleIndex][a],
+                        cyclesPoints[cycleIndex][(a + 1) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][(a + 2) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][(b + 3) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][(b + 2) % cyclesPoints[cycleIndex].size()],
+                        cyclesPoints[cycleIndex][(b + 1) % cyclesPoints[cycleIndex].size()],
+                        cycleIndex};
+                    addMoveToLM(LM, invertedEdgeMove, cyclesPoints, distances);
+                }
+            }
+        }
+    }
+
+    return LM;
+}
+
+ApplicabilityStatus getApplicabilityStatus(const Move& move, vector<vector<int>>& cyclesPoints)
+{
+    if (move.type == VerticesExchange)
+    {
+        // Check if vertices are in correct cycles
+        int aPointBeforeIndex = indexOfPoint(move.beforeFirst, cyclesPoints[0]);
+        int aPointIndex = indexOfPoint(move.first, cyclesPoints[0]);
+        int aPointAfterIndex = indexOfPoint(move.afterFirst, cyclesPoints[0]);
+
+        int bPointBeforeIndex = indexOfPoint(move.beforeSecond, cyclesPoints[1]);
+        int bPointIndex = indexOfPoint(move.second, cyclesPoints[1]);
+        int bPointAfterIndex = indexOfPoint(move.afterSecond, cyclesPoints[1]);
+
+        // Points are not in the correct cycles
+        if (aPointBeforeIndex == cyclesPoints[0].size()
+            || aPointIndex == cyclesPoints[0].size()
+            || aPointAfterIndex == cyclesPoints[0].size()
+            || bPointBeforeIndex == cyclesPoints[1].size()
+            || bPointIndex == cyclesPoints[1].size()
+            || bPointAfterIndex == cyclesPoints[1].size())
+        {
+            return InApplicable;
         }
 
+        // Points are in the same order
+        if ((((aPointBeforeIndex + 1) % cyclesPoints[0].size() == aPointIndex)
+            && ((aPointIndex + 1) % cyclesPoints[0].size() == aPointAfterIndex)
+            && ((bPointBeforeIndex + 1) % cyclesPoints[1].size() == bPointIndex)
+            && ((bPointIndex + 1) % cyclesPoints[1].size() == bPointAfterIndex)))
+        {
+            return Applicable;
+        }
 
-        // Vertices are in different cycles
-        if (firstPointInFirstCycle && secondPointInSecondCycle)
-            return 0;
-        else
-            return 1;
+        // Points are in different order - delta changed
+        return InApplicable;
 
     }
     else
     {
-        int firstEdgeA = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[1])
-            - cyclesPoints[LMmove[5]].begin();
-        int firstEdgeB = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[2])
-            - cyclesPoints[LMmove[5]].begin();
-        int secondEdgeA = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[3])
-            - cyclesPoints[LMmove[5]].begin();
-        int secondEdgeB = find(cyclesPoints[LMmove[5]].begin(), cyclesPoints[LMmove[5]].end(), LMmove[4])
-            - cyclesPoints[LMmove[5]].begin();
+        int cycleSize = cyclesPoints[move.cycle].size();
 
-        int cycleSize = cyclesPoints[LMmove[5]].size();
+        int aPointIndex = indexOfPoint(move.first, cyclesPoints[move.cycle]);
+        int aPointAfterIndex = indexOfPoint(move.afterFirst, cyclesPoints[move.cycle]);
 
-        // One of the points is not present in the solution
-        if ((firstEdgeA == cycleSize)
-            || (firstEdgeB == cycleSize)
-            || (secondEdgeA == cycleSize)
-            || (secondEdgeB == cycleSize))
+        int bPointIndex = indexOfPoint(move.second, cyclesPoints[move.cycle]);
+        int bPointAfterIndex = indexOfPoint(move.afterSecond, cyclesPoints[move.cycle]);
+
+        // Points are not in the correct cycles
+        if (aPointIndex == cycleSize
+            || aPointAfterIndex == cycleSize
+            || bPointIndex == cycleSize
+            || bPointAfterIndex == cycleSize)
         {
-            return 1;
+            return InApplicable;
         }
 
-        // Edges are present in correct order
-        if (((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == 1)
-                && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == 1))
-            // || (((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == cycleSize - 1)
-            //     && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == cycleSize - 1)))
+        // Edges are in the same order
+        if (((aPointIndex + 1) % cycleSize == aPointAfterIndex)
+            && ((bPointIndex + 1) % cycleSize == bPointAfterIndex))
         {
-            return 0;
+            return Applicable;
         }
 
-        // Edges are present but in wrong order
-        if ((((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == 1)
-                && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == cycleSize - 1))
-            || (((firstEdgeB - firstEdgeA + cycleSize) % cycleSize == cycleSize - 1)
-                && ((secondEdgeB - secondEdgeA + cycleSize) % cycleSize == 1)))
+        // Edges are in reversed order
+        if ((((aPointIndex + 1) % cycleSize == aPointAfterIndex)
+                && ((bPointAfterIndex + 1) % cycleSize == bPointIndex))
+            || (((aPointAfterIndex + 1) % cycleSize == aPointIndex)
+                && ((bPointIndex + 1) % cycleSize == bPointAfterIndex)))
         {
-            return 2;
+            return MaybeApplicable;
         }
 
-        // Edges are not present in the solution
-        return 1;
+        return InApplicable;
+    }
+
+}
+
+void addNewMoves(vector<pair<Move, int>>& LM, vector<vector<int>>& cyclesPoints,
+    const Move& lastMove, const vector<vector<int>>& distances)
+{
+    Move newMove;
+    if (lastMove.type == VerticesExchange)
+    {
+        for (int i = 0; i < cyclesPoints[0].size(); i++)
+        {
+            int beforeBeforeFirstIndex = (indexOfPoint(lastMove.beforeFirst, cyclesPoints[0]) - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size();
+            int beforeBeforeFirst = cyclesPoints[0][beforeBeforeFirstIndex];
+            int beforeBeforeSecondIndex = (indexOfPoint(lastMove.beforeSecond, cyclesPoints[1]) - 1 + cyclesPoints[1].size()) % cyclesPoints[1].size();
+            int beforeBeforeSecond = cyclesPoints[1][beforeBeforeSecondIndex];
+            // Add moves that exchange newly added edges with every other one in first cycle
+            if (cyclesPoints[0][(i + 1) % cyclesPoints[0].size()] != lastMove.beforeFirst)
+            {
+                // Create new move
+                newMove = {EdgesExchange,
+                    beforeBeforeFirst,
+                    lastMove.beforeFirst,
+                    lastMove.second,
+                    cyclesPoints[0][i],
+                    cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                    cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                    0};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                // Create one for inverted order of edges
+                newMove = {EdgesExchange,
+                    beforeBeforeFirst,
+                    lastMove.beforeFirst,
+                    lastMove.second,
+                    cyclesPoints[0][(i + 3) % cyclesPoints[0].size()],
+                    cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                    cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                    0};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+            }
+
+            if (cyclesPoints[0][(i + 1) % cyclesPoints[0].size()] != lastMove.second)
+            {
+                // Create new move
+                newMove = {EdgesExchange,
+                    lastMove.beforeFirst,
+                    lastMove.second,
+                    lastMove.afterFirst,
+                    cyclesPoints[0][i],
+                    cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                    cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                    0};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                // Create one for inverted order of edges
+                newMove = {EdgesExchange,
+                    lastMove.beforeFirst,
+                    lastMove.second,
+                    lastMove.afterFirst,
+                    cyclesPoints[0][(i + 3) % cyclesPoints[0].size()],
+                    cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                    cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                    0};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+            }
+
+            // Add moves that exchange newly added edges with every other one in second cycle
+            if (cyclesPoints[1][(i + 1) % cyclesPoints[1].size()] != lastMove.beforeSecond)
+            {
+                // Create new move
+                newMove = {EdgesExchange,
+                    beforeBeforeSecond,
+                    lastMove.beforeSecond,
+                    lastMove.first,
+                    cyclesPoints[1][i],
+                    cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                    cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                    1};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                // Create one for inverted order of edges
+                newMove = {EdgesExchange,
+                    beforeBeforeSecond,
+                    lastMove.beforeSecond,
+                    lastMove.first,
+                    cyclesPoints[1][(i + 3) % cyclesPoints[1].size()],
+                    cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                    cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                    1};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+            }
+
+            if (cyclesPoints[1][(i + 1) % cyclesPoints[1].size()] != lastMove.first)
+            {
+                // Create new move
+                newMove = {EdgesExchange,
+                    lastMove.beforeSecond,
+                    lastMove.first,
+                    lastMove.afterSecond,
+                    cyclesPoints[1][i],
+                    cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                    cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                    1};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                // Create one for inverted order of edges
+                newMove = {EdgesExchange,
+                    lastMove.beforeSecond,
+                    lastMove.first,
+                    lastMove.afterSecond,
+                    cyclesPoints[1][(i + 3) % cyclesPoints[1].size()],
+                    cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                    cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                    1};
+                addMoveToLM(LM, newMove, cyclesPoints, distances);
+            }
+
+            // Add moves that exchange modified vertices
+            newMove = {VerticesExchange,
+                lastMove.beforeSecond,
+                lastMove.first,
+                lastMove.afterSecond,
+                cyclesPoints[0][i],
+                cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                0};
+            addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+            newMove = {VerticesExchange,
+                lastMove.beforeFirst,
+                lastMove.second,
+                lastMove.afterFirst,
+                cyclesPoints[1][i],
+                cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                0};
+            addMoveToLM(LM, newMove, cyclesPoints, distances);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < cyclesPoints[lastMove.cycle].size(); i++)
+        {
+            // Add new edges exchange moves
+            // If the cycle direction is first -> second
+            if (cycleDirection(lastMove.first, lastMove.second, cyclesPoints[lastMove.cycle]) == 1)
+            {
+                if (cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()] != lastMove.first)
+                {
+                    // Create new move
+                    newMove = {EdgesExchange,
+                        lastMove.beforeFirst,
+                        lastMove.first,
+                        lastMove.second,
+                        cyclesPoints[lastMove.cycle][i],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    // Create one for inverted order of edges
+                    newMove = {EdgesExchange,
+                        lastMove.beforeFirst,
+                        lastMove.first,
+                        lastMove.second,
+                        cyclesPoints[lastMove.cycle][(i + 3) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+
+                // Add moves that exchange second added edge with every other one
+                if (cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()] != lastMove.afterFirst)
+                {
+                    int afterAfterFirstIndex = (indexOfPoint(lastMove.afterFirst, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterFirst = cyclesPoints[lastMove.cycle][afterAfterFirstIndex];
+                    // Create new move
+                    newMove = {EdgesExchange,
+                        afterAfterFirst,
+                        lastMove.afterFirst,
+                        lastMove.afterSecond,
+                        cyclesPoints[lastMove.cycle][i],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    // Create one for inverted order of edges
+                    newMove = {EdgesExchange,
+                        afterAfterFirst,
+                        lastMove.afterFirst,
+                        lastMove.afterSecond,
+                        cyclesPoints[lastMove.cycle][(i + 3) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+            }
+            else if (cycleDirection(lastMove.first, lastMove.second, cyclesPoints[lastMove.cycle]) == -1)
+            {
+                if (cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()] != lastMove.second)
+                {
+                    // Create new move
+                    newMove = {EdgesExchange,
+                        lastMove.beforeSecond,
+                        lastMove.second,
+                        lastMove.first,
+                        cyclesPoints[lastMove.cycle][i],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    // Create one for inverted order of edges
+                    newMove = {EdgesExchange,
+                        lastMove.beforeSecond,
+                        lastMove.second,
+                        lastMove.first,
+                        cyclesPoints[lastMove.cycle][(i + 3) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+
+                if (cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()] != lastMove.afterSecond)
+                {
+                    int beforeAfterSecondIndex = (indexOfPoint(lastMove.afterSecond, cyclesPoints[lastMove.cycle])
+                        - 1 + cyclesPoints[lastMove.cycle].size()) % cyclesPoints[lastMove.cycle].size();
+                    int beforeAfterSecond = cyclesPoints[lastMove.cycle][beforeAfterSecondIndex];
+                    // Create new move
+                    newMove = {EdgesExchange,
+                        beforeAfterSecond,
+                        lastMove.afterSecond,
+                        lastMove.afterFirst,
+                        cyclesPoints[lastMove.cycle][i],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    // Create one for inverted order of edges
+                    newMove = {EdgesExchange,
+                        beforeAfterSecond,
+                        lastMove.afterSecond,
+                        lastMove.afterFirst,
+                        cyclesPoints[lastMove.cycle][(i + 3) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 2) % cyclesPoints[lastMove.cycle].size()],
+                        cyclesPoints[lastMove.cycle][(i + 1) % cyclesPoints[lastMove.cycle].size()],
+                        lastMove.cycle};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+            }
+
+            // Add moves that use vertices that were part of the edges
+            if (lastMove.cycle == 0)
+            {
+                if (cycleDirection(lastMove.first, lastMove.second, cyclesPoints[lastMove.cycle]) == 1)
+                {
+                    newMove = {VerticesExchange,
+                        lastMove.beforeFirst,
+                        lastMove.first,
+                        lastMove.second,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterFirstIndex = (indexOfPoint(lastMove.afterFirst, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterFirst = cyclesPoints[lastMove.cycle][afterAfterFirstIndex];
+
+                    newMove = {VerticesExchange,
+                        afterAfterFirst,
+                        lastMove.afterFirst,
+                        lastMove.afterSecond,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    newMove = {VerticesExchange,
+                        lastMove.first,
+                        lastMove.second,
+                        lastMove.beforeSecond,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterSecondIndex = (indexOfPoint(lastMove.afterSecond, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterSecond = cyclesPoints[lastMove.cycle][afterAfterSecondIndex];
+
+                    newMove = {VerticesExchange,
+                        lastMove.afterFirst,
+                        lastMove.afterSecond,
+                        afterAfterSecond,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+                else if (cycleDirection(lastMove.first, lastMove.second, cyclesPoints[lastMove.cycle]) == -1)
+                {
+                    newMove = {VerticesExchange,
+                        lastMove.second,
+                        lastMove.first,
+                        lastMove.beforeFirst,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterFirstIndex = (indexOfPoint(lastMove.afterFirst, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterFirst = cyclesPoints[lastMove.cycle][afterAfterFirstIndex];
+
+                    newMove = {VerticesExchange,
+                        lastMove.afterSecond,
+                        lastMove.afterFirst,
+                        afterAfterFirst,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    newMove = {VerticesExchange,
+                        lastMove.beforeSecond,
+                        lastMove.second,
+                        lastMove.first,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterSecondIndex = (indexOfPoint(lastMove.afterSecond, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterSecond = cyclesPoints[lastMove.cycle][afterAfterSecondIndex];
+
+                    newMove = {VerticesExchange,
+                        afterAfterSecond,
+                        lastMove.afterSecond,
+                        lastMove.afterFirst,
+                        cyclesPoints[1][i],
+                        cyclesPoints[1][(i + 1) % cyclesPoints[1].size()],
+                        cyclesPoints[1][(i + 2) % cyclesPoints[1].size()],
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+            }
+            else
+            {
+                if (cycleDirection(lastMove.first, lastMove.second, cyclesPoints[lastMove.cycle]) == 1)
+                {
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        lastMove.beforeFirst,
+                        lastMove.first,
+                        lastMove.second,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterFirstIndex = (indexOfPoint(lastMove.afterFirst, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterFirst = cyclesPoints[lastMove.cycle][afterAfterFirstIndex];
+
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        afterAfterFirst,
+                        lastMove.afterFirst,
+                        lastMove.afterSecond,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        lastMove.first,
+                        lastMove.second,
+                        lastMove.beforeSecond,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterSecondIndex = (indexOfPoint(lastMove.afterSecond, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterSecond = cyclesPoints[lastMove.cycle][afterAfterSecondIndex];
+
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        lastMove.afterFirst,
+                        lastMove.afterSecond,
+                        afterAfterSecond,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+                else if (cycleDirection(lastMove.first, lastMove.second, cyclesPoints[lastMove.cycle]) == -1)
+                {
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        lastMove.second,
+                        lastMove.first,
+                        lastMove.beforeFirst,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterFirstIndex = (indexOfPoint(lastMove.afterFirst, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterFirst = cyclesPoints[lastMove.cycle][afterAfterFirstIndex];
+
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        lastMove.afterSecond,
+                        lastMove.afterFirst,
+                        afterAfterFirst,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        lastMove.beforeSecond,
+                        lastMove.second,
+                        lastMove.first,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+
+                    int afterAfterSecondIndex = (indexOfPoint(lastMove.afterSecond, cyclesPoints[lastMove.cycle]) + 1) % cyclesPoints[lastMove.cycle].size();
+                    int afterAfterSecond = cyclesPoints[lastMove.cycle][afterAfterSecondIndex];
+
+                    newMove = {VerticesExchange,
+                        cyclesPoints[0][i],
+                        cyclesPoints[0][(i + 1) % cyclesPoints[0].size()],
+                        cyclesPoints[0][(i + 2) % cyclesPoints[0].size()],
+                        afterAfterSecond,
+                        lastMove.afterSecond,
+                        lastMove.afterFirst,
+                        0};
+                    addMoveToLM(LM, newMove, cyclesPoints, distances);
+                }
+            }
+        }
     }
 }
 
-void pastMoves(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, const vector<vector<int>>& allPossibleMoves)
+void pastMoves(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
 {
-    // move{<type>, <A>, <B>, <cycle index>}
-    // type possible values:
-    //   1 - exchanging vertices between two cycles
-    //       move{1, <first vertex cycle index>, <second vertex cycle index>, 0}
-    //   2 - exchanging edges in one cycle
-    //       move{2, <first edge start index>, <second edge start index>, <cycle index>}
+    // Initialize the LM vector
+    vector<pair<Move, int>> LM = initializeLM(cyclesPoints, distances);
 
-    // LMmove{<type>, <A>, <B>, <C>, <D>, <cycle index>}
-    // type possible values:
-    //   1 - exchanging vertices between two cycles
-    //       LMmove{1, <first vertex global index>, 0, <second vertex global index>, 0, 0}
-    //   2 - exchanging edges in one cycle
-    //       LMmove{2, <first edge start>, <first edge end>, <second edge start>, <second edge end>, <cycle index>}
-
-    // Initialize the LM list
-    // LM{{LMmove1, delta1}, {LMmove2, delta2}, ... }
-    vector<pair<vector<int>, int>> LM{};
-    for (int i = 0; i < allPossibleMoves.size(); i++)
-    {
-        vector<int> LMmove = translateMoveToLM(allPossibleMoves[i], cyclesPoints);
-        addMoveToLM(LM, LMmove, cyclesPoints, distances);
-    }
-
+    // Main loop - stops when there is no applicable move
     bool stopCondition = false;
     while (!stopCondition)
     {
         stopCondition = true;
-        int LMmoveIndex = 0;
-        while (LMmoveIndex < LM.size())
+        int moveIndex = 0;
+        while (moveIndex < LM.size())
         {
-            vector<int> LMmove = LM[LMmoveIndex].first;
-            int applicabilityStatus = applicableStatus(LMmove, cyclesPoints);
-            if ((applicabilityStatus == 0) && (computeDeltaBasedOnLMMove(LMmove, cyclesPoints, distances) < 0))
-            {
-                vector<int> move = translateLMToMove(LMmove, cyclesPoints);
-                cyclesPoints = makeLMMove(cyclesPoints, LMmove);
+            Move move = LM[moveIndex].first;
+            int applicabilityStatus = getApplicabilityStatus(move, cyclesPoints);
 
-                LM.erase(LM.begin() + LMmoveIndex);
+            if (applicabilityStatus == Applicable)
+            {
+                // Make move and erase it from LM
+                cyclesPoints = makeMove(cyclesPoints, move);
+                LM.erase(LM.begin() + moveIndex);
 
                 // Add new moves to LM
-                vector<int> newMove;
-                vector<int> newLMmove;
-                int newMoveDelta;
-                if (LMmove[0] == 1)
-                {
-                    for (int i = 0; i < cyclesPoints[0].size(); i++)
-                    {
-                        // New vertices exchanges in first cycle
-                        if (cyclesPoints[0][i] != LMmove[1])
-                        {
-                            newLMmove = {1, cyclesPoints[0][i], 0, LMmove[1], 0, 0};
-                            addMoveToLM(LM, newLMmove, cyclesPoints, distances);
-                        }
-
-                        // New vertices exchanges in second cycle
-                        if (cyclesPoints[1][i] != LMmove[3])
-                        {
-                            newLMmove = {1, LMmove[3], 0, cyclesPoints[1][i], 0, 0};
-                            addMoveToLM(LM, newLMmove, cyclesPoints, distances);
-                        }
-
-                        // New edges exchanges in first cycle
-                        if (int((move[2] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()) != i)
-                        {
-                            newMove = {2, int((move[2] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()), i, 0};
-                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
-                        }
-                        if (move[2] != i)
-                        {
-                            newMove = {2, move[2], i, 0};
-                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
-                        }
-
-                        // New edges exchanges in second cycle
-                        if (int((move[1] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()) != i)
-                        {
-                            newMove = {2, int((move[1] - 1 + cyclesPoints[0].size()) % cyclesPoints[0].size()), i, 1};
-                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
-                        }
-
-                        if (move[1] != i)
-                        {
-                            newMove = {2, move[1], i, 1};
-                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
-                        }
-                    }
-                }
-                else if (LMmove[0] == 2)
-                {
-                    for (int i = 0; i < cyclesPoints[0].size(); i++)
-                    {
-                        // New edges exchanges in the cycle the move was made
-                        if ( move[1] != i)
-                        {
-                            newMove = {2, move[1], i, move[3]};
-
-                            newLMmove = {2, LMmove[1], LMmove[3], cyclesPoints[LMmove[5]][i], cyclesPoints[LMmove[5]][(i + 1) % cyclesPoints[LMmove[5]].size()], LMmove[5]};
-                            addMoveToLM(LM, newLMmove, cyclesPoints, distances);
-                        }
-
-                        if ( int((move[1] + 1) % cyclesPoints[0].size()) != i)
-                        {
-                            newMove = {2, int((move[1] + 1) % cyclesPoints[0].size()), i, move[3]};
-                            addMoveToLM(LM, translateMoveToLM(newMove, cyclesPoints), cyclesPoints, distances);
-                        }
-                    }
-                }
+                addNewMoves(LM, cyclesPoints, move, distances);
 
                 stopCondition = false;
                 break;
+
             }
-            else if (applicabilityStatus == 1)
+            else if (applicabilityStatus == MaybeApplicable)
             {
-                LM.erase(LM.begin() + LMmoveIndex);
+                moveIndex++;
             }
-            else if ((applicabilityStatus == 2) || (computeDeltaBasedOnLMMove(LMmove, cyclesPoints, distances) >= 0))
+            else if (applicabilityStatus == InApplicable)
             {
-                LMmoveIndex++;
+                LM.erase(LM.begin() + moveIndex);
             }
         }
     }
 }
 
-bool comparePairs(const pair<int, int>& a, const pair<int, int>& b) {
-    return a.first < b.first; // Sort based on the first value of the pair
+bool comparePairs(const pair<int, int>& a, const pair<int, int>& b)
+{
+    return a.first < b.first;
 }
 
 vector<vector<int>> findClosestNeighbors(const vector<vector<int>>& distances, int k)
@@ -804,7 +1394,6 @@ vector<vector<int>> findClosestNeighbors(const vector<vector<int>>& distances, i
 
     for (int i = 0; i < n; i++)
     {
-        // Create a vector of pairs (distance, vertex index)
         vector<pair<int, int>> distIndexPairs;
         for (int j = 0; j < n; j++)
         {
@@ -817,7 +1406,7 @@ vector<vector<int>> findClosestNeighbors(const vector<vector<int>>& distances, i
         // Sort the pairs based on distance
         sort(distIndexPairs.begin(), distIndexPairs.end(), comparePairs);
 
-        // Take the k closest neighbors and store their vertex indices
+        // Take k closest neighbors
         for (int j = 0; j < k && j < distIndexPairs.size(); j++)
         {
             closest[i].push_back(distIndexPairs[j].second);
@@ -1025,11 +1614,10 @@ int main(int argc, char* argv[])
 
         // Start algorithm
         vector<vector<int>> cyclesPoints = randomCycle(distances);
-        // showCycles(cyclesPoints);
         chrono::steady_clock::time_point beginTimeMeasurement = chrono::steady_clock::now();
         if (string(argv[2]) == "pastMoves")
         {
-            pastMoves(cyclesPoints, distances, allPossibleMoves);
+            pastMoves(cyclesPoints, distances);
         }
         else if (string(argv[2]) == "candidates")
         {
