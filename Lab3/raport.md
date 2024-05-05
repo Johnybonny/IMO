@@ -23,12 +23,12 @@ Każdy z algorytmów akceptuje na wejściu macierz odległości pomiędzy danymi
 
 ### Algorytm wykorzystania ocen ruchów z poprzednich iteracji
 
-W algorytmie korzystamy z wektora LM, który jest posortowaną od najlepszego według delty listą ruchów.
+W algorytmie korzystamy z wektora LM, który jest posortowaną od listą ruchów. Ruchy posortowane są według wartości delty. Im jest ona mniejsza, tym wcześniej ruch znajduje się w LM.
 W LM oprócz ruchu przechowywana jest jego delta, aby nie było potrzeby jej liczyć w każdej iteracji.
 Podczas dodawania ruchów związanych z wymianą krawędzi w cyklu, dodawane były również ruchy dla odwróconego względnego kierunku krawędzi.
 
 ```
-wygeneruj losowe rozwiązanie startowe i listę możliwych ruchów.
+wygeneruj losowe rozwiązanie startowe.
 Zainicjuj listę LM i dodaj do niej możliwe ruchy przynoszące poprawę zachowując odpowiednią kolejność.
 powtarzaj
 {
@@ -44,10 +44,10 @@ powtarzaj
     {
       jeśli ruch nie jest aplikowalny, czyli krawędzie nie występują w cyklu, usuń go z LM.
       jeśli ruch jest aplikowalny, czyli krawędzie występują w cyklu w tym samym kierunku, wykonaj go i usuń z LM.
-      jeśli krawędzie występują w cyklu, ale w różnych kierunkach, nie wykonuj go i przejdź do kolejnej iteracji.
+      jeśli krawędzie występują w cyklu, ale w przeciwnych kierunkach, nie wykonuj go i przejdź do kolejnej iteracji.
     }
 
-    dodaj do LM nowe możliwe ruchy przynoszące poprawę oraz ich deltę
+    jeśli ruch został wykonany, to dodaj do LM nowe możliwe ruchy przynoszące poprawę oraz ich deltę
     {
       jeśli wykonany ruch był międzytrasowy, to dodaj ruchy związane z wymianą nowych wierzchołków oraz wymianą nowo powstałych krawędzi z wszystkimi innymi krawędziami w cyklu.
       jeśli wykonany ruch był wewnątrztrasowy, to dodaj ruchy związane z wymianą nowo powstałych krawędzi z wszystkimi innymi krawędziami w cyklu, w którym wykonany był ruch.
@@ -72,7 +72,16 @@ powtarzaj
     {
       jeżeli punkt i sąsiad są w różnych cyklach
       {
-        oblicz deltę wymiany punktu i sąsiada pomiędzy cyklami.
+        oblicz deltę wymiany wierzchołka przed punktem i sąsiada pomiędzy cyklami.
+        jeżeli delta jest mniejsza od 0 oraz najmniejsza z dotychczasowych to zapamiętaj ją oraz ruch.
+
+        oblicz deltę wymiany wierzchołka za punktem i sąsiada pomiędzy cyklami.
+        jeżeli delta jest mniejsza od 0 oraz najmniejsza z dotychczasowych to zapamiętaj ją oraz ruch.
+
+        oblicz deltę wymiany punktu i wierzchołka przed sąsiadem pomiędzy cyklami.
+        jeżeli delta jest mniejsza od 0 oraz najmniejsza z dotychczasowych to zapamiętaj ją oraz ruch.
+
+        oblicz deltę wymiany punktu i wierzchołka za sąsiadem pomiędzy cyklami.
         jeżeli delta jest mniejsza od 0 oraz najmniejsza z dotychczasowych to zapamiętaj ją oraz ruch.
       }
 
@@ -153,12 +162,12 @@ W tabeli przedstawione zostały najlepsze, średnie i najgorsze wyniki dla zbada
   </tr>
   <tr>
     <td class="tg-73oq">ruchy kandydackie (k=10)</td>
-    <td class="tg-wp8o">37683</td>
-    <td class="tg-wp8o">39809</td>
-    <td class="tg-wp8o">41710</td>
-    <td class="tg-wp8o">38208</td>
-    <td class="tg-wp8o">39778</td>
-    <td class="tg-wp8o">42169</td>
+    <td class="tg-wp8o">35589</td>
+    <td class="tg-wp8o">38747</td>
+    <td class="tg-wp8o">43351</td>
+    <td class="tg-wp8o">37063</td>
+    <td class="tg-wp8o">38905</td>
+    <td class="tg-wp8o">40900</td>
   </tr>
 </tbody>
 </table>
@@ -212,21 +221,21 @@ W tabeli poniżej przedstawione zostały czasy wykonania poszczególnych algoryt
   </tr>
   <tr>
     <td class="tg-73oq">oceny poprzednich ruchów</td>
-    <td class="tg-wp8o">9156</td>
-    <td class="tg-wp8o">12509</td>
-    <td class="tg-wp8o">16546</td>
-    <td class="tg-wp8o">9091</td>
-    <td class="tg-wp8o">11660</td>
-    <td class="tg-wp8o">14963</td>
+    <td class="tg-wp8o">512</td>
+    <td class="tg-wp8o">723</td>
+    <td class="tg-wp8o">988</td>
+    <td class="tg-wp8o">538</td>
+    <td class="tg-wp8o">691</td>
+    <td class="tg-wp8o">975</td>
   </tr>
   <tr>
     <td class="tg-73oq">ruchy kandydackie (k=10)</td>
-    <td class="tg-wp8o">434</td>
-    <td class="tg-wp8o">517</td>
-    <td class="tg-wp8o">729</td>
-    <td class="tg-wp8o">449</td>
-    <td class="tg-wp8o">506</td>
-    <td class="tg-wp8o">745</td>
+    <td class="tg-wp8o">407</td>
+    <td class="tg-wp8o">510</td>
+    <td class="tg-wp8o">731</td>
+    <td class="tg-wp8o">419</td>
+    <td class="tg-wp8o">545</td>
+    <td class="tg-wp8o">722</td>
   </tr>
 </tbody>
 </table>
@@ -241,7 +250,7 @@ Poniżej umieszczone zostały wizualizacje najlepszych z uzyskanych wyników:
 
 Oceny poprzednich ruchów         |  Ruchy kandydackie
 :-------------------------:|:-------------------------:
-![](./out/kroA200_map_memory2.png)  |  ![](./out/kroA200_map_candidate.png)
+![](./out/kroA200_map_pastMoves.png)  |  ![](./out/kroA200_map_candidates.png)
 
 ## Wizualizacja kroB200.tsp
 
@@ -251,7 +260,7 @@ Oceny poprzednich ruchów         |  Ruchy kandydackie
 
 Oceny poprzednich ruchów         |  Ruchy kandydackie
 :-------------------------:|:-------------------------:
-![](./out/kroB200_map_memory2.png)  |  ![](./out/kroB200_map_candidate.png)
+![](./out/kroB200_map_pastMoves.png)  |  ![](./out/kroB200_map_candidates.png)
 
 ## Badanie wpływu liczby sąsiadów na wynik oraz czas działania algorytmu ruchów kandydackich
 
@@ -268,4 +277,4 @@ Czasy - kroA200         |  Czasy - kroB200
 1. Lokalne przeszukiwanie z zapamiętywaniem poprzednich ruchów jest efektywną metodą optymalizacji lokalnego przeszukiwania. W każdym przypadku udało się poprawić rozwiązanie wygenerowane jako startowe.
 2. Algorytm ruchów kandydackich jest efektywną heurystyką poprawiającą rozwiązania startowe. W każdym przypadku udało się je poprawić.
 3. Lokalne przeszukiwanie z zapamiętywaniem poprzednich ruchów radzi sobie gorzej niż przeszukiwanie strome, ale za to działa szybciej. Wadą tej metody jest duża trudność w implementacji algorytmu. Algorytm ruchów kandydackich radzi sobie nieco gorzej niż przeszukiwanie strome, ale lepiej niż lokalne przeszukiwanie z zapamiętywaniem poprzednich ruchów. Zaletą algorytmu jest jego prostota i możliwość dobrania wartości k oznaczającej liczbę rozpatrywanych sąsiadów. Najlepsze wyniki oraz czasy osiągała heurystyka konstrukcyjna oparta na 2-żalu.
-4. Dobór wartości k w algorytmie wykorzystującym ruchy kandydackie znacząco wpływa na otrzymane wyniki oraz czas działania algorytmu. Dla k>6 można oczekiwać podobnych, dobrych wyników. Dalsze zwiększanie k może poprawić wynik, ale nie w tak znaczący sposób. Widocznie wydłuża się natomiast czas działania algoytmu. Zwiększa się on liniowo przy dobieraniu coraz większych wartości k.
+4. Dobór wartości k w algorytmie wykorzystującym ruchy kandydackie znacząco wpływa na otrzymane wyniki oraz czas działania algorytmu. Dla k>8 można oczekiwać podobnych, dobrych wyników. Dalsze zwiększanie k może poprawić wynik, ale nie w tak znaczący sposób. Widocznie wydłuża się natomiast czas działania algoytmu. Zwiększa się on liniowo przy dobieraniu coraz większych wartości k.
