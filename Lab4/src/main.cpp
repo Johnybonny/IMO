@@ -5,13 +5,14 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <random>
 #include <sstream>
 #include <vector>
 
 #define BIG_M 1000000000
 #define NUM_OF_CYCLES 2
-#define NUM_OF_ITERATIONS 10
+#define NUM_OF_ITERATIONS 1
 
 using namespace std;
 
@@ -160,6 +161,16 @@ int getLengthBasedOnPoints(const vector<int>& points, const vector<vector<int>>&
     }
     sum += distances[points[points.size() - 1]][points[0]];
     return sum;
+}
+
+int getFullLength(const vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances)
+{
+    int totalLength = 0;
+    for (int i = 0; i < cyclesPoints.size(); i++)
+    {
+        totalLength += getLengthBasedOnPoints(cyclesPoints[i], distances);
+    }
+    return totalLength;
 }
 
 vector<vector<int>> randomCycle(const vector<vector<int>>& distances)
@@ -406,7 +417,7 @@ vector<vector<int>> multipleStartLocalSearch(const vector<vector<int>>& distance
 
         // Run steepest local search algorithm
         steepest(cyclesPoints, distances, possibleMoves);
-        int score = getLengthBasedOnPoints(cyclesPoints[0], distances) + getLengthBasedOnPoints(cyclesPoints[1], distances);
+        int score = getFullLength(cyclesPoints, distances);
 
         // Remember the best score
         if (score < bestScore)
@@ -418,9 +429,63 @@ vector<vector<int>> multipleStartLocalSearch(const vector<vector<int>>& distance
     return bestCyclesPoints;
 }
 
-void iteratedLocalSearch()
+void perturbateCycles(vector<vector<int>>& cyclesPoints, const vector<IndexedMove>& possibleMoves)
 {
-    cout << "Iterated local search\n";
+    std::random_device rd;
+    std::mt19937 g(rd());
+
+    int randomMovesNumber = rand() % 4 + 2;
+    std::vector<IndexedMove> shuffledMoves = possibleMoves;
+
+    std::shuffle(shuffledMoves.begin(), shuffledMoves.end(), g);
+    std::vector<IndexedMove> selectedMoves(shuffledMoves.begin(), shuffledMoves.begin() + randomMovesNumber);
+
+    for (int i = 0; i < randomMovesNumber; i++)
+    {
+        cyclesPoints = makeMove(cyclesPoints, selectedMoves[i]);
+    }
+}
+
+pair<vector<vector<int>>, int> iteratedLocalSearch(const vector<vector<int>>& distances, const vector<IndexedMove>& possibleMoves, int availableTime)
+{
+    // Start time measurement
+    chrono::steady_clock::time_point startTime = chrono::steady_clock::now();
+    chrono::steady_clock::time_point currentTime = chrono::steady_clock::now();
+    int timeElapsed = 0;
+
+    // Generate first solution
+    vector<vector<int>> cyclesPoints = randomCycle(distances);
+
+    // Run steepest algorithm for first solution
+    steepest(cyclesPoints, distances, possibleMoves);
+
+    int perturbationCount = 0;
+    // Start the loop
+    do
+    {
+        vector<vector<int>> newCyclesPoints = cyclesPoints;
+
+        // Perturbate the cycles
+        perturbateCycles(newCyclesPoints, possibleMoves);
+
+        // Repair the cycles
+        steepest(newCyclesPoints, distances, possibleMoves);
+
+        // Compare result to the previous cycle
+        if (getFullLength(newCyclesPoints, distances) < getFullLength(cyclesPoints, distances))
+        {
+            cyclesPoints = newCyclesPoints;
+        }
+
+        perturbationCount++;
+
+        // Measure time
+        currentTime = chrono::steady_clock::now();
+        timeElapsed = chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+    }
+    while (timeElapsed < availableTime);
+
+    return {cyclesPoints, perturbationCount};
 }
 
 void largeScaleNeighborhoodSearch()
@@ -430,10 +495,10 @@ void largeScaleNeighborhoodSearch()
 
 int main(int argc, char* argv[])
 {
-    if (argc != 5)
+    if (argc != 6)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <multiple|iterated|large-scale>";
-        cerr << " <output_filename_1> <output_filename_2>" << endl;
+        cerr << " <output_filename_1> <output_filename_2> <time in s>" << endl;
         return 1;
     }
 
@@ -453,7 +518,10 @@ int main(int argc, char* argv[])
         }
     }
 
+    int availableTime = atoi(argv[5]);
+
     vector<vector<vector<int>>> results = {};
+    vector<int> perturbations;
     vector<int> times = {};
     srand(time(NULL));
 
@@ -471,7 +539,9 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[2]) == "iterated")
         {
-            iteratedLocalSearch();
+            pair<vector<vector<int>>, int> algorithmResult = iteratedLocalSearch(distances, allPossibleMoves, availableTime);
+            cyclesPoints = algorithmResult.first;
+            perturbations.push_back(algorithmResult.second);
         }
         else if (string(argv[2]) == "large-scale")
         {
@@ -492,6 +562,11 @@ int main(int argc, char* argv[])
     pair<vector<vector<int>>, vector<int>> statistics = computeStatistics(results, distances, times);
     cout << "Values:\tMin: " << statistics.second[0] << "\tMean: " << statistics.second[1] << "\tMax: " << statistics.second[2] << "\n";
     cout << "Time:\tMin: " << statistics.second[3] << "\tMean: " << statistics.second[4] << "\tMax: " << statistics.second[5] << "\n";
+    if ((string(argv[2]) == "iterated") || (string(argv[2]) == "large-scale"))
+    {
+        float count = static_cast<float>(perturbations.size());
+        cout << "Perturbations: " << reduce(perturbations.begin(), perturbations.end()) / count << "\n";
+    }
 
     saveCycleToFile(statistics.first, argv[3], argv[4]);
 
