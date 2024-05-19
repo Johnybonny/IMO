@@ -11,8 +11,9 @@
 #include <vector>
 
 #define BIG_M 1000000000
+#define COST_WEIGHT 0.6
 #define NUM_OF_CYCLES 2
-#define NUM_OF_ITERATIONS 1
+#define NUM_OF_ITERATIONS 10
 
 using namespace std;
 
@@ -95,36 +96,6 @@ int euclideanDistance(const vector<int>& p1, const vector<int>& p2)
     return int(sqrt(sum) + 0.5);
 }
 
-int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
-{
-    int maximumDistance = distances[point][point];
-    int furthestPoint = point;
-    for (size_t j = 0; j < distances[point].size(); j++)
-    {
-        if ((distances[point][j] > maximumDistance) && !taken[j])
-        {
-            maximumDistance = distances[point][j];
-            furthestPoint = j;
-        }
-    }
-    return furthestPoint;
-}
-
-int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
-{
-    int minimumDistance = BIG_M;
-    int closestPoint = point;
-    for (size_t j = 0; j < distances[point].size(); j++)
-    {
-        if ((distances[point][j] < minimumDistance) && !taken[j])
-        {
-            minimumDistance = distances[point][j];
-            closestPoint = j;
-        }
-    }
-    return closestPoint;
-}
-
 void showCycles(const vector<vector<int>>& cycles)
 {
     for (size_t i = 0; i < cycles.size(); i++)
@@ -141,15 +112,6 @@ void showCycles(const vector<vector<int>>& cycles)
 int indexOfPoint(int point, const vector<int>& cycle)
 {
     return find(cycle.begin(), cycle.end(), point) - cycle.begin();
-}
-
-vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances, const int startingPoint)
-{
-    // Choose second point
-    int secondPoint = findFurthestPoint(distances, vector<bool>(distances.size(), false), startingPoint);
-
-    vector<vector<int>> initializedCycles = {vector<int> {startingPoint}, vector<int> {secondPoint}};
-    return initializedCycles;
 }
 
 int getLengthBasedOnPoints(const vector<int>& points, const vector<vector<int>>& distances)
@@ -488,17 +450,168 @@ pair<vector<vector<int>>, int> iteratedLocalSearch(const vector<vector<int>>& di
     return {cyclesPoints, perturbationCount};
 }
 
-void largeScaleNeighborhoodSearch()
+pair<pair<int, int>, int> computeRegret(const vector<pair<int, int>>& costs)
 {
-    cout << "Large-scale neighborhood search\n";
+    int lowestValue = BIG_M;
+    int lowestValuePlace = 0;
+    int secondLowestValue = BIG_M;
+    int secondLowestValuePlace = 0;
+
+    for (int i = 0; i < costs.size(); i++)
+    {
+        if (costs[i].second < lowestValue)
+        {
+            secondLowestValue = lowestValue;
+            lowestValue = costs[i].second;
+            lowestValuePlace = costs[i].first;
+        }
+        else if (costs[i].second < secondLowestValue)
+        {
+            secondLowestValue = costs[i].second;
+        }
+    }
+
+    return {{lowestValuePlace, int(secondLowestValue - lowestValue)}, lowestValue};
+}
+
+void repair(vector<vector<int>>& cyclesPoints, vector<bool>& taken, const vector<vector<int>>& distances, const double costWeight)
+{
+    while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+    {
+        // For each cycle
+        for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+        {
+            if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+                break;
+
+            // Find new point with the highest regret to insert
+            int highestRegret = -BIG_M;
+            int bestPoint = 0;
+            int bestPlace = 0;
+            int lowestCost = BIG_M;
+            vector<pair<pair<int, int>, int>> regretValues = {};
+            for (size_t point = 0; point < taken.size(); point++)
+            {
+                if (taken[point])
+                    continue;
+
+                // Find place to insert the new point (after the place index)
+                vector<pair<int, int>> costs = {};
+                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); place++)
+                {
+                    // Get the cost of inserting the point
+                    int pointBefore = cyclesPoints[cycleIndex][place];
+                    int pointAfter = cyclesPoints[cycleIndex][(place + 1) % cyclesPoints[cycleIndex].size()];
+                    int insertCost = distances[pointBefore][point]
+                        + distances[point][pointAfter]
+                        - distances[pointBefore][pointAfter];
+
+                    costs.push_back({place, insertCost});
+                }
+
+                // Compute the regret update the highest regret
+                // regret = {{<where to insert>, <regret value>}, <cost of insertion>}
+                pair<pair<int, int>, int> regret = computeRegret(costs);
+                int weightedRegret = regret.first.second  - int(costWeight * regret.second);
+                if ((weightedRegret > highestRegret)
+                    || (weightedRegret == highestRegret && regret.second < lowestCost))
+                {
+                    highestRegret = weightedRegret;
+                    bestPoint = point;
+                    bestPlace = regret.first.first;
+                    lowestCost = regret.second;
+                }
+            }
+
+            // Add chosen point to the cycle
+            size_t indexToInsert = (bestPlace + 1) % (cyclesPoints[cycleIndex].size() + 1);
+            cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + indexToInsert, bestPoint);
+
+            // Mark point as taken
+            taken[bestPoint] = true;
+        }
+    }
+}
+
+vector<bool> destroy(vector<vector<int>>& cyclesPoints, const vector<IndexedMove>& possibleMoves, const vector<vector<int>>& distances)
+{
+    // Destroy 30% of vertices in each cycle
+    int numberToDestroy = int(0.3 * cyclesPoints[0].size());
+
+    // Set all points as taken
+    vector<bool> taken(distances.size(), true);
+
+    // Set indexes to start removing vertices
+    int firstChosenIndex = rand() % cyclesPoints[0].size();
+    int secondChosenIndex = rand() % cyclesPoints[1].size();
+    int firstCycleRemovalStart = (firstChosenIndex - int(numberToDestroy / 2) + cyclesPoints[0].size()) % cyclesPoints[0].size();
+    int secondCycleRemovalStart = (secondChosenIndex - int(numberToDestroy / 2) + cyclesPoints[1].size()) % cyclesPoints[1].size();
+
+    // Remove vertices and update taken
+    for (int i = 0; i < numberToDestroy; i++)
+    {
+        taken[cyclesPoints[0][(firstCycleRemovalStart) % cyclesPoints[0].size()]] = false;
+        cyclesPoints[0].erase(cyclesPoints[0].begin() + (firstCycleRemovalStart % cyclesPoints[0].size()));
+
+        taken[cyclesPoints[1][(secondCycleRemovalStart) % cyclesPoints[1].size()]] = false;
+        cyclesPoints[1].erase(cyclesPoints[1].begin() + (secondCycleRemovalStart % cyclesPoints[1].size()));
+    }
+
+    return taken;
+}
+
+pair<vector<vector<int>>, int> largeScaleNeighborhoodSearch(const vector<vector<int>>& distances,
+    const vector<IndexedMove>& possibleMoves, const int availableTime, const bool useLocalSearch)
+{
+    // Start time measurement
+    chrono::steady_clock::time_point startTime = chrono::steady_clock::now();
+    chrono::steady_clock::time_point currentTime = chrono::steady_clock::now();
+    int timeElapsed = 0;
+
+    // Generate first solution
+    vector<vector<int>> cyclesPoints = randomCycle(distances);
+    vector<bool> taken(distances.size(), true);
+
+    // Run steepest algorithm for first solution
+    steepest(cyclesPoints, distances, possibleMoves);
+
+    int perturbationCount = 0;
+    // Start the loop
+    do
+    {
+        vector<vector<int>> newCyclesPoints = cyclesPoints;
+
+        // Perturbate the cycles and get the taken vector
+        taken = destroy(newCyclesPoints, possibleMoves, distances);
+
+        // Repair the cycles
+        repair(newCyclesPoints, taken, distances, COST_WEIGHT);
+
+        // Run steepest algorithm
+        if (useLocalSearch)
+            steepest(newCyclesPoints, distances, possibleMoves);
+
+        // Compare result to the previous cycle
+        if (getFullLength(newCyclesPoints, distances) < getFullLength(cyclesPoints, distances))
+            cyclesPoints = newCyclesPoints;
+
+        perturbationCount++;
+
+        // Measure time
+        currentTime = chrono::steady_clock::now();
+        timeElapsed = chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+    }
+    while (timeElapsed < availableTime);
+
+    return {cyclesPoints, perturbationCount};
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc != 6)
+    if (argc != 7)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <multiple|iterated|large-scale>";
-        cerr << " <output_filename_1> <output_filename_2> <time in s>" << endl;
+        cerr << " <output_filename_1> <output_filename_2> <time in s> <use_local_s|no_use_local_s>" << endl;
         return 1;
     }
 
@@ -519,6 +632,7 @@ int main(int argc, char* argv[])
     }
 
     int availableTime = atoi(argv[5]);
+    bool useLocalSearch = string(argv[6]) == "use_local_s";
 
     vector<vector<vector<int>>> results = {};
     vector<int> perturbations;
@@ -545,7 +659,9 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[2]) == "large-scale")
         {
-            largeScaleNeighborhoodSearch();
+            pair<vector<vector<int>>, int> algorithmResult = largeScaleNeighborhoodSearch(distances, allPossibleMoves, availableTime, useLocalSearch);
+            cyclesPoints = algorithmResult.first;
+            perturbations.push_back(algorithmResult.second);
         }
         else
         {
@@ -565,7 +681,9 @@ int main(int argc, char* argv[])
     if ((string(argv[2]) == "iterated") || (string(argv[2]) == "large-scale"))
     {
         float count = static_cast<float>(perturbations.size());
-        cout << "Perturbations: " << reduce(perturbations.begin(), perturbations.end()) / count << "\n";
+        cout << "Perturbations:\tMin: " << *min_element(perturbations.begin(), perturbations.end());
+        cout << "\tMean: " << reduce(perturbations.begin(), perturbations.end()) / count;
+        cout << "\tMax: " << *max_element(perturbations.begin(), perturbations.end()) << "\n";
     }
 
     saveCycleToFile(statistics.first, argv[3], argv[4]);
