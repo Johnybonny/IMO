@@ -49,8 +49,8 @@ powtarzaj
 zwróć aktualne rozwiązanie.
 ```
 
-### Iterated local search z niewielką perturbacją
-W algorytmie wykorzystana została perturbacja będąca usunięciem 30% wierzchołków w cyklu w pobliżu najbliższej pary wierzchołków, w której wierzchołki należą do innych cykli (destroy). Naprawienie rozwiązania było zaimplementowane poprzez algorytm korzystający z heurystyki 2-żalu z ważonym żalem opisany dokładnie w raporcie na pierwsze laboratorium (repair). Warunkiem stopu w algorytmie jest osiągnięcie czasu równego średniemu czasowi Multiple start local search dla tej samej instancji. Algorytm został również uruchomiony w wersji bez lokalnego przeszukiwania po fazie naprawy cykli (wielkoskalowe przeszukiwanie sąsiedztwa).
+### Iterated local search z większą perturbacją
+W algorytmie wykorzystana została perturbacja będąca usunięciem 30% wierzchołków  następujących po sobie w losowym miejscu w każdym cyklu (destroy). Naprawienie rozwiązania było zaimplementowane poprzez algorytm korzystający z heurystyki 2-żalu z ważonym żalem opisany dokładnie w raporcie na pierwsze laboratorium (repair). Warunkiem stopu w algorytmie jest osiągnięcie czasu równego średniemu czasowi Multiple start local search dla tej samej instancji. Algorytm został również uruchomiony w wersji bez lokalnego przeszukiwania po fazie naprawy cykli (wielkoskalowe przeszukiwanie sąsiedztwa).
 
 ```
 wygeneruj losowe rozwiązanie startowe.
@@ -136,7 +136,7 @@ W tabeli przedstawione zostały najlepsze, średnie i najgorsze wyniki dla zbada
 </tbody>
 </table>
 
-W tabeli poniżej przedstawione zostały czasy wykonania poszczególnych algorytmu MSLS w sekundach. Pozostałe algorytmy były uruchamiane na czas średni wykonania MSLS dla danej instancji.
+W tabeli przedstawione zostały czasy wykonywania algorytmu  MSLS na obu badanych instancjach.
 
 <style type="text/css">
 .tg  {border-collapse:collapse;border-spacing:0;}
@@ -261,5 +261,3 @@ ILS2         |  ILS2a
 ## Wnioski
 1. Wszystkie algorytmy są efektywnymi metodami rozszerzenia lokalnego przeszukiwania. W każdym przypadku udało się poprawić rozwiązanie wygenerowane jako startowe.
 2. Najlepiej radzi sobie algorytm Iterated local search z większą perturbacją typu Destroy-Repair w wersji z przeszukiwaniem stromym po każdej perturbacji. Wersja bez przeszukiwania stromego daje bardzo podobne rozwiązania, wykonując dużo więcej perturbacji. Iterated local search z niewielką perturbacją radzi sobie trochę gorzej, ale wykonuje zdecydowanie więcej perturbacji. Algorytm Multiple start local search radzi sobie najgorzej, ale jest wciąż dobrą metodą rozszerzenia lokalnego przeszukiwania, ponieważ daje lepsze wyniki w porównaniu z pojedynczym uruchomieniem algorytmu przeszukiwania stromego. Oczywiście dzieje się to kosztem czasu obliczeń.
-3.
-
