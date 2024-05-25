@@ -401,6 +401,9 @@ void repair(vector<vector<int>>& cyclesPoints, vector<bool>& taken, const vector
             if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
                 break;
 
+            if (cyclesPoints[cycleIndex].size() == taken.size() / 2)
+                continue;
+
             // Find new point with the highest regret to insert
             int highestRegret = -BIG_M;
             int bestPoint = 0;
@@ -450,20 +453,229 @@ void repair(vector<vector<int>>& cyclesPoints, vector<bool>& taken, const vector
     }
 }
 
-pair<vector<vector<int>>, int> hybridEvolutionary(const vector<vector<int>>& distances,
-    const vector<IndexedMove>& allPossibleMoves, const bool localSearch, const int availableTime)
+vector<pair<vector<vector<int>>, int>> createFirstGeneration(const int populationSize, const vector<vector<int>>& distances, const vector<IndexedMove>& possibleMoves)
 {
-    vector<vector<int>> random = randomCycle(distances);
-    cout << "Hybrid evolutionary algorithm\n";
-    return {random, 0};
+    vector<pair<vector<vector<int>>, int>> population;
+    vector<vector<int>> cyclesPoints;
+    int length;
+    bool isUnique;
+    for (int i = 0; i < populationSize; i++)
+    {
+        isUnique = false;
+        while (!isUnique)
+        {
+            // Create an individual
+            cyclesPoints = randomCycle(distances);
+            steepest(cyclesPoints, distances, possibleMoves);
+            length = getFullLength(cyclesPoints, distances);
+
+            // Make sure the solutions do not repeat in population
+            isUnique = true;
+            for (int solution = 0; solution < population.size(); solution++)
+            {
+                if (length == population[solution].second)
+                {
+                    isUnique = false;
+                    break;
+                }
+            }
+        }
+
+        population.push_back({cyclesPoints, length});
+    }
+
+    return population;
+}
+
+pair<vector<vector<int>>, vector<vector<int>>> drawParents(const vector<pair<vector<vector<int>>, int>>& population)
+{
+    int firstParentIndex = rand() % population.size();
+    int secondParentIndex;
+
+    do
+    {
+        secondParentIndex = rand() % population.size();
+    } while (firstParentIndex == secondParentIndex);
+
+    return {population[firstParentIndex].first, population[secondParentIndex].first};
+}
+
+bool containsEdge(const int edgePointA, const int edgePointB, const vector<vector<int>>& cyclesPoints)
+{
+    for (int cycleIndex = 0; cycleIndex < cyclesPoints.size(); cycleIndex++)
+    {
+        for (int vertexIndex = 0; vertexIndex < cyclesPoints[cycleIndex].size(); vertexIndex++)
+        {
+            if (cyclesPoints[cycleIndex][vertexIndex] == edgePointA)
+            {
+                if (cyclesPoints[cycleIndex][(vertexIndex + 1) % cyclesPoints[cycleIndex].size()] == edgePointB)
+                    return true;
+
+                if (cyclesPoints[cycleIndex][(vertexIndex - 1 + cyclesPoints[cycleIndex].size()) % cyclesPoints[cycleIndex].size()] == edgePointB)
+                    return true;
+
+                return false;
+            }
+        }
+    }
+
+    return false;
+}
+
+vector<vector<int>> crossParents(const pair<vector<vector<int>>, vector<vector<int>>>& parents,
+    const vector<vector<int>>& distances)
+{
+    vector<vector<int>> child = parents.first;
+
+    // Initialize a vector of potential vertices to erase
+    vector<int> suspiciousVertices(distances.size(), 0);
+
+    // Find vertices to remove
+    // while (cycleIndex < parents.first.size())
+    for(int cycleIndex = 0; cycleIndex < parents.first.size(); cycleIndex++)
+    {
+        // while (vertexIndex < parents.first[cycleIndex].size())
+        for(int vertexIndex = 0; vertexIndex < parents.first[cycleIndex].size(); vertexIndex++)
+        {
+            int firstEdgeA = parents.first[cycleIndex][vertexIndex];
+            int firstEdgeB = parents.first[cycleIndex][(vertexIndex + 1) % parents.first[cycleIndex].size()];
+
+            if (!containsEdge(firstEdgeA, firstEdgeB, parents.second))
+            {
+                suspiciousVertices[firstEdgeA]++;
+                suspiciousVertices[firstEdgeB]++;
+            }
+        }
+    }
+
+    // Remove edges in child that do not appear in both parents
+    int cycleIndex = 0;
+    while (cycleIndex < child.size())
+    {
+        int vertexIndex = 0;
+        while (vertexIndex < child[cycleIndex].size())
+        {
+            if (suspiciousVertices[child[cycleIndex][vertexIndex]] > 1)
+                child[cycleIndex].erase(child[cycleIndex].begin() + vertexIndex);
+            else
+                vertexIndex++;
+        }
+        cycleIndex++;
+    }
+
+    // Create taken vector
+    vector<bool> taken(distances.size(), false);
+    for (int cycleIndex = 0; cycleIndex < child.size(); cycleIndex++)
+    {
+        for (int i = 0; i < child[cycleIndex].size(); i++)
+        {
+            taken[child[cycleIndex][i]] = true;
+        }
+    }
+
+    // Rebuild the child
+    repair(child, taken, distances, COST_WEIGHT);
+
+    return child;
+}
+
+bool appearsInPopulation(const int score, const vector<pair<vector<vector<int>>, int>>& population)
+{
+    auto it = find_if(population.begin(), population.end(),
+        [score](const pair<vector<vector<int>>, int> &individual)
+        {
+            return individual.second == score;
+        });
+
+    if (it != population.end())
+        return true;
+
+    return false;
+}
+
+pair<int, int> getWorstValues(const vector<pair<vector<vector<int>>, int>>& population)
+{
+    auto worst = max_element(population.begin(), population.end(),
+        [](const pair<vector<vector<int>>, int> &a, const pair<vector<vector<int>>, int> &b)
+        {
+            return a.second > b.second;
+        });
+
+    int worstIndex = distance(population.begin(), worst);
+
+    return {worstIndex, worst->second};
+}
+
+vector<vector<int>> getBestIndividual(const vector<pair<vector<vector<int>>, int>>& population)
+{
+    auto best = min_element(population.begin(), population.end(),
+        [](const pair<vector<vector<int>>, int> &a, const pair<vector<vector<int>>, int> &b)
+        {
+            return a.second < b.second;
+        });
+
+    return best->first;
+}
+
+pair<vector<vector<int>>, int> hybridEvolutionary(const vector<vector<int>>& distances,
+    const vector<IndexedMove>& possibleMoves, const bool useLocalSearch, const int populationSize,
+    const int availableTime)
+{
+    // Start time measurement
+    chrono::steady_clock::time_point startTime = chrono::steady_clock::now();
+    chrono::steady_clock::time_point currentTime = chrono::steady_clock::now();
+    int timeElapsed = 0;
+
+    // Create first generation
+    vector<pair<vector<vector<int>>, int>> population =
+        createFirstGeneration(populationSize, distances, possibleMoves);
+
+    // Start the loop
+    int generationCount = 0;
+    do
+    {
+        // Choose random parents
+        pair<vector<vector<int>>, vector<vector<int>>> parents = drawParents(population);
+
+        // Cross parents and create a new solution
+        vector<vector<int>> child = crossParents(parents, distances);
+
+        // Run local search on child (optional)
+        if (useLocalSearch)
+            steepest(child, distances, possibleMoves);
+
+        // Check if child is better than worst solution and different enough
+        int childScore = getFullLength(child, distances);
+        cout << childScore << "\n";
+        pair<int, int> worst = getWorstValues(population);
+        if (childScore < worst.second && !appearsInPopulation(childScore, population))
+        {
+            // Remove the worst individual
+            population.erase(population.begin() + worst.first);
+
+            // Add child to population
+            population.push_back({child, childScore});
+        }
+
+        generationCount++;
+
+        // Measure time
+        currentTime = chrono::steady_clock::now();
+        timeElapsed = chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+    }
+    while (timeElapsed < availableTime);
+
+    // Get the best individual from population
+    vector<vector<int>> bestIndividualPoints = getBestIndividual(population);
+    return {bestIndividualPoints, generationCount};
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc != 6)
+    if (argc != 7)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <local_search|no_local_search>";
-        cerr << " <output_filename_1> <output_filename_2> <time>" << endl;
+        cerr << " <output_filename_1> <output_filename_2> <population_size> <time>" << endl;
         return 1;
     }
 
@@ -483,8 +695,9 @@ int main(int argc, char* argv[])
         }
     }
 
-    int availableTime = atoi(argv[5]);
+    int availableTime = atoi(argv[6]);
     bool useLocalSearch = string(argv[2]) == "local_search";
+    int populationSize = atoi(argv[5]);
 
     vector<vector<vector<int>>> results = {};
     vector<int> perturbations;
@@ -500,7 +713,8 @@ int main(int argc, char* argv[])
         vector<vector<int>> cyclesPoints;
         chrono::steady_clock::time_point beginTimeMeasurement = chrono::steady_clock::now();
 
-        pair<vector<vector<int>>, int> algorithmResult = hybridEvolutionary(distances, allPossibleMoves, useLocalSearch, availableTime);
+        pair<vector<vector<int>>, int> algorithmResult =
+            hybridEvolutionary(distances, allPossibleMoves, useLocalSearch, populationSize, availableTime);
         cyclesPoints = algorithmResult.first;
         perturbations.push_back(algorithmResult.second);
 
