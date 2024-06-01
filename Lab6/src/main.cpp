@@ -36,6 +36,13 @@ struct IndexedMove
     }
 };
 
+struct GlobalTestsResults
+{
+    vector<int> scores;
+    vector<int> differencesToBest;
+    vector<float> averageDifferences;
+};
+
 vector<vector<int>> parseInput(const string& filename)
 {
     vector<vector<int>> result;
@@ -65,25 +72,31 @@ vector<vector<int>> parseInput(const string& filename)
     return result;
 }
 
-void saveCycleToFile(const vector<vector<int>>& points, const string& fileName1, const string& fileName2)
+void saveResultsToFile(const GlobalTestsResults& results, const string& fileName1, const string& fileName2, const string& fileName3)
 {
-    ofstream file0;
-    file0.open(fileName1);
-    for (size_t i = 0; i < points[0].size() - 1; i++)
-    {
-        file0 << points[0][i] << "\t" << points[0][i + 1] << "\n";
-    }
-    file0 << points[0][points[0].size() - 1] << "\t" << points[0][0];
-    file0.close();
-
     ofstream file1;
-    file1.open(fileName2);
-    for (size_t i = 0; i < points[1].size() - 1; i++)
+    file1.open(fileName1);
+    for (int i = 0; i < results.scores.size(); i++)
     {
-        file1 << points[1][i] << "\t" << points[1][i + 1] << "\n";
+        file1 << results.scores[i] << "\n";
     }
-    file1 << points[1][points[1].size() - 1] << "\t" << points[1][0];
     file1.close();
+
+    ofstream file2;
+    file2.open(fileName2);
+    for (int i = 0; i < results.differencesToBest.size(); i++)
+    {
+        file2 << results.differencesToBest[i] << "\n";
+    }
+    file2.close();
+
+    ofstream file3;
+    file3.open(fileName3);
+    for (int i = 0; i < results.averageDifferences.size(); i++)
+    {
+        file3 << results.averageDifferences[i] << "\n";
+    }
+    file3.close();
 }
 
 int euclideanDistance(const vector<int>& p1, const vector<int>& p2)
@@ -107,6 +120,31 @@ void showCycles(const vector<vector<int>>& cycles)
         }
         cout << "\n";
     }
+}
+
+template <typename T>
+void showCorrelation(const vector<int>& x, const vector<T>& y, const string& title)
+{
+    if (x.size() != y.size())
+        return;
+
+    float xMean = reduce(x.begin(), x.end()) / static_cast<float>(x.size());
+    float yMean = reduce(y.begin(), y.end()) / static_cast<float>(y.size());
+
+    float numerator = 0.0;
+    float denominatorX = 0.0;
+    float denominatorY = 0.0;
+
+
+    for (int i = 0; i < x.size(); i++)
+    {
+        numerator += (x[i] - xMean) * (y[i] - yMean);
+        denominatorX += (x[i] - xMean) * (x[i] - xMean);
+        denominatorY += (y[i] - yMean) * (y[i] - yMean);
+    }
+
+    float coefficient = numerator / sqrt(denominatorX * denominatorY);
+    cout << title << coefficient << "\n";
 }
 
 int indexOfPoint(int point, const vector<int>& cycle)
@@ -309,6 +347,34 @@ vector<vector<int>> makeMove(const vector<vector<int>>& cyclesPoints, const Inde
     return newCyclesPoints;
 }
 
+void greedy(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, vector<IndexedMove>& allPossibleMoves)
+{
+    // Initialize random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    bool stopCondition = false;
+    while (!stopCondition)
+    {
+        stopCondition = true;
+
+        // Shuffle moves vector
+        std::shuffle(allPossibleMoves.begin(), allPossibleMoves.end(), gen);
+
+        // Find move to make
+        for (int moveIndex = 0; moveIndex < allPossibleMoves.size(); moveIndex++)
+        {
+            int delta = computeDelta(allPossibleMoves[moveIndex], cyclesPoints, distances);
+            if (delta < 0)
+            {
+                cout << "delta: " << delta << "\n";
+                makeMove(cyclesPoints, allPossibleMoves[moveIndex]);
+                stopCondition = false;
+            }
+        }
+    }
+}
+
 void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& distances, const vector<IndexedMove>& allPossibleMoves)
 {
     bool stopCondition = false;
@@ -334,50 +400,322 @@ void steepest(vector<vector<int>>& cyclesPoints, const vector<vector<int>>& dist
     }
 }
 
-pair<vector<vector<int>>, vector<int>> computeStatistics(const vector<vector<vector<int>>>& results,
-    const vector<vector<int>>& distances, const vector<int>& times)
+pair<pair<int, int>, int> computeRegret(const vector<pair<int, int>>& costs)
 {
-    int sum = 0;
-    int bestResult = BIG_M;
-    int worstResult = 0;
-    vector<vector<int>> bestCycles;
-    for (int res = 0; res < results.size(); res++)
+    int lowestValue = BIG_M;
+    int lowestValuePlace = 0;
+    int secondLowestValue = BIG_M;
+    int secondLowestValuePlace = 0;
+
+    for (int i = 0; i < costs.size(); i++)
     {
-        int score = getLengthBasedOnPoints(results[res][0], distances)
-            + getLengthBasedOnPoints(results[res][1], distances);
-
-        if (score <= bestResult)
+        if (costs[i].second < lowestValue)
         {
-            bestCycles = results[res];
-            bestResult = score;
+            secondLowestValue = lowestValue;
+            lowestValue = costs[i].second;
+            lowestValuePlace = costs[i].first;
         }
-        else if (score >= worstResult)
+        else if (costs[i].second < secondLowestValue)
         {
-            worstResult = score;
+            secondLowestValue = costs[i].second;
         }
-
-        sum += score;
     }
 
-    int minTime = *min_element(times.begin(), times.end());
-    int maxTime = *max_element(times.begin(), times.end());
-    float const count = static_cast<float>(times.size());
-    int averageTime = int(reduce(times.begin(), times.end()) / count);
-
-    return {bestCycles, {bestResult, int(sum/results.size()), worstResult, minTime, averageTime, maxTime}};
+    return {{lowestValuePlace, int(secondLowestValue - lowestValue)}, lowestValue};
 }
 
-void globalTests()
+int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
 {
-    cout << "Globalne testy wypukłości\n";
+    int maximumDistance = distances[point][point];
+    int furthestPoint = point;
+    for (size_t j = 0; j < distances[point].size(); j++)
+    {
+        if ((distances[point][j] > maximumDistance) && !taken[j])
+        {
+            maximumDistance = distances[point][j];
+            furthestPoint = j;
+        }
+    }
+    return furthestPoint;
+}
+
+int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
+{
+    int minimumDistance = BIG_M;
+    int closestPoint = point;
+    for (size_t j = 0; j < distances[point].size(); j++)
+    {
+        if ((distances[point][j] < minimumDistance) && !taken[j])
+        {
+            minimumDistance = distances[point][j];
+            closestPoint = j;
+        }
+    }
+    return closestPoint;
+}
+
+vector<vector<int>> initializeCyclesPoints(const vector<vector<int>>& distances, const int startingPoint)
+{
+    // Choose second point
+    int secondPoint = findFurthestPoint(distances, vector<bool>(distances.size(), false), startingPoint);
+
+    vector<vector<int>> initializedCycles = {vector<int> {startingPoint}, vector<int> {secondPoint}};
+    return initializedCycles;
+}
+
+vector<vector<int>> regretHeuristics(const vector<vector<int>>& distances, const int startingPoint, const double costWeight)
+{
+    // Initialize cycles with first point in each
+    vector<vector<int>> cyclesPoints = initializeCyclesPoints(distances, startingPoint);
+    vector<bool> taken = vector<bool>(distances.size(), false);
+    taken[cyclesPoints[0][0]] = true;
+    taken[cyclesPoints[1][0]] = true;
+
+    // Start the cycles with second point for each previously generated point
+    int newPoint0 = findClosestPoint(distances, taken, cyclesPoints[0][0]);
+    cyclesPoints[0].push_back(newPoint0);
+    taken[newPoint0] = true;
+    int newPoint1 = findClosestPoint(distances, taken, cyclesPoints[1][0]);
+    cyclesPoints[1].push_back(newPoint1);
+    taken[newPoint1] = true;
+
+    while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+    {
+        // For each cycle
+        for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+        {
+            if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+                break;
+
+            if (cyclesPoints[cycleIndex].size() == taken.size() / 2)
+                continue;
+
+            // Find new point with the highest regret to insert
+            int highestRegret = -BIG_M;
+            int bestPoint = 0;
+            int bestPlace = 0;
+            int lowestCost = BIG_M;
+            vector<pair<pair<int, int>, int>> regretValues = {};
+            for (int point = 0; point < taken.size(); point++)
+            {
+                if (taken[point])
+                    continue;
+
+                // Find place to insert the new point (after the place index)
+                vector<pair<int, int>> costs = {};
+                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); place++)
+                {
+                    // Get the cost of inserting the point
+                    int pointBefore = cyclesPoints[cycleIndex][place];
+                    int pointAfter = cyclesPoints[cycleIndex][(place + 1) % cyclesPoints[cycleIndex].size()];
+                    int insertCost = distances[pointBefore][point]
+                        + distances[point][pointAfter]
+                        - distances[pointBefore][pointAfter];
+
+                    costs.push_back({place, insertCost});
+                }
+
+                // Compute the regret update the highest regret
+                // regret = {{<where to insert>, <regret value>}, <cost of insertion>}
+                pair<pair<int, int>, int> regret = computeRegret(costs);
+                int weightedRegret = regret.first.second  - int(costWeight * regret.second);
+                if ((weightedRegret > highestRegret)
+                    || (weightedRegret == highestRegret && regret.second < lowestCost))
+                {
+                    highestRegret = weightedRegret;
+                    bestPoint = point;
+                    bestPlace = regret.first.first;
+                    lowestCost = regret.second;
+                }
+            }
+
+            // Add chosen point to the cycle
+            size_t indexToInsert = (bestPlace + 1) % (cyclesPoints[cycleIndex].size() + 1);
+            cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + indexToInsert, bestPoint);
+
+            // Mark point as taken
+            taken[bestPoint] = true;
+        }
+
+        if ((cyclesPoints[0].size() == taken.size() / 2)
+            && (cyclesPoints[1].size() == taken.size() / 2))
+            break;
+    }
+
+    return cyclesPoints;
+}
+
+int commonVertices(const vector<vector<int>>& firstCycle, const vector<vector<int>>& secondCycle)
+{
+    int sameVertices = 0;
+    for (int firstPointIndex = 0; firstPointIndex < firstCycle[0].size(); firstPointIndex++)
+    {
+        for (int secondPointIndex = 0; secondPointIndex < secondCycle[0].size(); secondPointIndex++)
+        {
+            if (firstCycle[0][firstPointIndex] == secondCycle[0][secondPointIndex])
+                sameVertices++;
+        }
+    }
+
+    // Simmilarity in cycles is between 0 and 0, 1 and 1
+    if (sameVertices > (firstCycle[0].size() / 2))
+        return sameVertices * 2;
+
+    // Simmilarity in cycles is between 0 and 1, 1 and 0
+    return (firstCycle[0].size() - sameVertices) * 2;
+}
+
+int commonEdges(const vector<vector<int>>& firstCycle, const vector<vector<int>>& secondCycle)
+{
+    int sameEdges = 0;
+    for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+    {
+        for (int pointIndex = 0; pointIndex < firstCycle[cycleIndex].size(); pointIndex++)
+        {
+            int firstEdgeA = firstCycle[cycleIndex][pointIndex];
+            int firstEdgeB = firstCycle[cycleIndex][(pointIndex + 1) % firstCycle[cycleIndex].size()];
+
+            int secondEdgeAIndex = indexOfPoint(firstEdgeA, secondCycle[0]);
+            if (secondEdgeAIndex != secondCycle[0].size())
+            {
+                if (secondCycle[0][(secondEdgeAIndex + 1) % secondCycle[0].size()] == firstEdgeB)
+                    sameEdges++;
+            }
+            else
+            {
+                secondEdgeAIndex = indexOfPoint(firstEdgeA, secondCycle[1]);
+                if (secondCycle[1][(secondEdgeAIndex + 1) % secondCycle[1].size()] == firstEdgeB)
+                    sameEdges++;
+            }
+        }
+    }
+
+    return sameEdges;
+}
+
+GlobalTestsResults globalTests(const vector<vector<int>>& distances, const bool useCommonVertices, const bool compareBest)
+{
+    vector<vector<int>> cyclesPoints;
+    vector<vector<int>> bestCycles;
+    int bestScore = BIG_M;
+    int score;
+    if (!compareBest)
+    {
+        // Create best solution
+        cout << "Create best solution\n";
+        vector<bool> taken = vector<bool>(distances.size(), false);
+        for (int i = 0; i < 200; i++)
+        {
+            cout << (i/200.0) * 100.0 << "%\n";
+            // cyclesPoints = randomCycle(distances);
+            cyclesPoints = regretHeuristics(distances, i, COST_WEIGHT);
+            score = getFullLength(cyclesPoints, distances);
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestCycles = cyclesPoints;
+            }
+        }
+        cout << "Best score: " << bestScore << "\n";
+    }
+
+    vector<IndexedMove> allPossibleMoves = generateMoves(distances.size() / 2, distances);
+
+    // Create 1000 solutions using greedy
+    cout << "Create 1000 solutions using greedy\n";
+    vector<vector<vector<int>>> solutions;
+    for (int i = 0; i < 1000; i++)
+    {
+        cout << (i/1000.0) * 100.0 << "%\n";
+        cyclesPoints = randomCycle(distances);
+        // greedy(cyclesPoints, distances, allPossibleMoves);
+        steepest(cyclesPoints, distances, allPossibleMoves);
+        solutions.push_back(cyclesPoints);
+        if (compareBest)
+        {
+            score = getFullLength(cyclesPoints, distances);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestCycles = cyclesPoints;
+            }
+        }
+    }
+
+
+    vector<int> commonBests;
+    vector<float> commonMeans;
+    // Compute differences
+    cout << "Compute differences\n";
+    for (int i = 0; i < solutions.size(); i++)
+    {
+        if (useCommonVertices)
+            commonBests.push_back(commonVertices(solutions[i], bestCycles));
+        else
+            commonBests.push_back(commonEdges(solutions[i], bestCycles));
+
+        float commonMean = 0.0;
+        for (int j = 0; j < solutions.size(); j++)
+        {
+            if (i != j)
+            {
+                if (useCommonVertices)
+                    commonMean += commonVertices(solutions[i], solutions[j]);
+                else
+                    commonMean += commonEdges(solutions[i], solutions[j]);
+            }
+        }
+
+        commonMeans.push_back(commonMean / solutions.size());
+    }
+
+    // Append scores
+    vector<int> scores;
+    for (int i = 0; i < solutions.size(); i++)
+        scores.push_back(getFullLength(solutions[i], distances));
+
+    // Show correlation coefficient
+    if (compareBest)
+    {
+        int bestScore = BIG_M;
+        int bestIndex = 0;
+        for (int i = 0; i < solutions.size(); i++)
+        {
+            if (scores[i] < bestScore)
+            {
+                bestScore = scores[i];
+                bestIndex = i;
+            }
+        }
+        vector<int> removedBestScores = scores;
+        removedBestScores.erase(removedBestScores.begin() + bestIndex);
+
+        vector<int> removedBestCommonBests = commonBests;
+        removedBestCommonBests.erase(removedBestCommonBests.begin() + bestIndex);
+
+        vector<float> removedBestCommonMeans = commonMeans;
+        removedBestCommonMeans.erase(removedBestCommonMeans.begin() + bestIndex);
+
+        cout << "Współczynniki korelacji:\n";
+        showCorrelation(removedBestScores, removedBestCommonBests, "Różnice w stosunku do najlepszego rozwiązania: ");
+        showCorrelation(removedBestScores, removedBestCommonMeans, "Średnie różnice: ");
+    }
+    else
+    {
+        showCorrelation(scores, commonBests, "Różnice w stosunku do najlepszego rozwiązania: ");
+        showCorrelation(scores, commonMeans, "Średnie różnice: ");
+    }
+
+    return {scores, commonBests, commonMeans};
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc != 6)
+    if (argc != 7)
     {
-        cerr << "Usage: " << argv[0] << " <input_filename> <common-vertices|common-edges>";
-        cerr << " <output_filename_1> <output_filename_2> <best_score>" << endl;
+        cerr << "Usage: " << argv[0] << " <input_filename> <output_filename_1> <output_filename_2>";
+        cerr << " <output_filename_3> <common-vertices|common-edges> <compare-best|compare-regret>" << endl;
         return 1;
     }
 
@@ -397,17 +735,14 @@ int main(int argc, char* argv[])
         }
     }
 
-    bool useCommonVertices = string(argv[2]) == "common-vertices";
-
-    vector<vector<vector<int>>> results = {};
-    vector<int> perturbations;
-    vector<int> times = {};
     srand(time(NULL));
-
-    vector<IndexedMove> allPossibleMoves = generateMoves(distances.size() / 2, distances);
+    bool useCommonVertices = string(argv[5]) == "common-vertices";
+    bool compareWithBest = string(argv[6]) == "compare-best";
 
     // Start algorithm
-    globalTests();
+    GlobalTestsResults results = globalTests(distances, useCommonVertices, compareWithBest);
+
+    saveResultsToFile(results, argv[2], argv[3], argv[4]);
 
     return 0;
 }
