@@ -36,6 +36,36 @@ struct IndexedMove
     }
 };
 
+int findFurthestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
+{
+    int maximumDistance = distances[point][point];
+    int furthestPoint = point;
+    for (size_t j = 0; j < distances[point].size(); j++)
+    {
+        if ((distances[point][j] > maximumDistance) && !taken[j])
+        {
+            maximumDistance = distances[point][j];
+            furthestPoint = j;
+        }
+    }
+    return furthestPoint;
+}
+
+int findClosestPoint(const vector<vector<int>>& distances, const vector<bool>& taken, const int point)
+{
+    int minimumDistance = BIG_M;
+    int closestPoint = point;
+    for (size_t j = 0; j < distances[point].size(); j++)
+    {
+        if ((distances[point][j] < minimumDistance) && !taken[j])
+        {
+            minimumDistance = distances[point][j];
+            closestPoint = j;
+        }
+    }
+    return closestPoint;
+}
+
 vector<vector<int>> parseInput(const string& filename)
 {
     vector<vector<int>> result;
@@ -646,7 +676,6 @@ pair<vector<vector<int>>, int> hybridEvolutionary(const vector<vector<int>>& dis
 
         // Check if child is better than worst solution and different enough
         int childScore = getFullLength(child, distances);
-        cout << childScore << "\n";
         pair<int, int> worst = getWorstValues(population);
         if (childScore < worst.second && !appearsInPopulation(childScore, population))
         {
@@ -672,10 +701,10 @@ pair<vector<vector<int>>, int> hybridEvolutionary(const vector<vector<int>>& dis
 
 int main(int argc, char* argv[])
 {
-    if (argc != 7)
+    if (argc != 8)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <local_search|no_local_search>";
-        cerr << " <output_filename_1> <output_filename_2> <population_size> <time>" << endl;
+        cerr << " <output_filename_1> <output_filename_2> <population_size> <time> <evo|regret>" << endl;
         return 1;
     }
 
@@ -703,6 +732,54 @@ int main(int argc, char* argv[])
     vector<int> perturbations;
     vector<int> times = {};
     srand(time(NULL));
+
+    if (string(argv[7]) == "regret")
+    {
+        vector<int> scores;
+        int bestScore = BIG_M;
+        vector<vector<int>> bestCycle;
+        for (int iteration = 0; iteration < 200; iteration++)
+        {
+            cout << (iteration / 200.0) * 100.0 << "%\n";
+
+            // Start algorithm
+            vector<vector<int>> cyclesPoints = {{},{}};
+            vector<bool> taken(distances.size(), false);
+
+            cyclesPoints[0].push_back(iteration);
+            taken[cyclesPoints[0][0]] = true;
+            cyclesPoints[0].push_back(findClosestPoint(distances, taken, iteration));
+            taken[cyclesPoints[0][1]] = true;
+            cyclesPoints[1].push_back(findFurthestPoint(distances, taken, iteration));
+            taken[cyclesPoints[1][0]] = true;
+            cyclesPoints[1].push_back(findClosestPoint(distances, taken, findFurthestPoint(distances, taken, iteration)));
+            taken[cyclesPoints[1][1]] = true;
+
+            repair(cyclesPoints, taken, distances, COST_WEIGHT);
+
+            int score = getFullLength(cyclesPoints, distances);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestCycle = cyclesPoints;
+            }
+
+            scores.push_back(score);
+        }
+
+        auto min_it = min_element(scores.begin(), scores.end());
+        auto max_it = max_element(scores.begin(), scores.end());
+        double mean = reduce(scores.begin(), scores.end(), 0.0) / scores.size();
+
+        if (min_it != scores.end() && max_it != scores.end())
+            cout << "Values:\tMin: " << *min_it << "\tMean: " << mean << "\tMax: " << *max_it << "\n";
+        else
+            cout << "Error computing min/max values.\n";
+
+        saveCycleToFile(bestCycle, argv[3], argv[4]);
+
+        return 0;
+    }
 
     vector<IndexedMove> allPossibleMoves = generateMoves(distances.size() / 2, distances);
     for (int iteration = 0; iteration < NUM_OF_ITERATIONS; iteration++)

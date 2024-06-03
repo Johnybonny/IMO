@@ -28,7 +28,7 @@ def draw_map(scores, differences_to_best, average_differences, map_filename, tit
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process vertex file')
     parser.add_argument('vertex_file', type=str, help='Path to the vertex file')
-    parser.add_argument('algorithm', type=str, help='Type of algorithm', choices=['common-vertices', 'common-edges'])
+    parser.add_argument('algorithm', type=str, help='Type of algorithm', choices=['common-vertices-best', 'common-edges-best', 'common-vertices-ils2', 'common-edges-ils2'])
     args = parser.parse_args()
     instance = args.vertex_file.split('.')[0].split('/')[1]
     scores_file = f"out/1.txt"

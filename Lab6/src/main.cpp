@@ -593,6 +593,138 @@ int commonEdges(const vector<vector<int>>& firstCycle, const vector<vector<int>>
     return sameEdges;
 }
 
+void repair(vector<vector<int>>& cyclesPoints, vector<bool>& taken, const vector<vector<int>>& distances, const double costWeight)
+{
+    while (any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+    {
+        // For each cycle
+        for (int cycleIndex = 0; cycleIndex < NUM_OF_CYCLES; cycleIndex++)
+        {
+            if (!any_of(taken.begin(), taken.end(), [](bool value) { return !value; }))
+                break;
+
+            // Find new point with the highest regret to insert
+            int highestRegret = -BIG_M;
+            int bestPoint = 0;
+            int bestPlace = 0;
+            int lowestCost = BIG_M;
+            vector<pair<pair<int, int>, int>> regretValues = {};
+            for (size_t point = 0; point < taken.size(); point++)
+            {
+                if (taken[point])
+                    continue;
+
+                // Find place to insert the new point (after the place index)
+                vector<pair<int, int>> costs = {};
+                for (size_t place = 0; place < cyclesPoints[cycleIndex].size(); place++)
+                {
+                    // Get the cost of inserting the point
+                    int pointBefore = cyclesPoints[cycleIndex][place];
+                    int pointAfter = cyclesPoints[cycleIndex][(place + 1) % cyclesPoints[cycleIndex].size()];
+                    int insertCost = distances[pointBefore][point]
+                        + distances[point][pointAfter]
+                        - distances[pointBefore][pointAfter];
+
+                    costs.push_back({place, insertCost});
+                }
+
+                // Compute the regret update the highest regret
+                // regret = {{<where to insert>, <regret value>}, <cost of insertion>}
+                pair<pair<int, int>, int> regret = computeRegret(costs);
+                int weightedRegret = regret.first.second  - int(costWeight * regret.second);
+                if ((weightedRegret > highestRegret)
+                    || (weightedRegret == highestRegret && regret.second < lowestCost))
+                {
+                    highestRegret = weightedRegret;
+                    bestPoint = point;
+                    bestPlace = regret.first.first;
+                    lowestCost = regret.second;
+                }
+            }
+
+            // Add chosen point to the cycle
+            size_t indexToInsert = (bestPlace + 1) % (cyclesPoints[cycleIndex].size() + 1);
+            cyclesPoints[cycleIndex].insert(cyclesPoints[cycleIndex].begin() + indexToInsert, bestPoint);
+
+            // Mark point as taken
+            taken[bestPoint] = true;
+        }
+    }
+}
+
+vector<bool> destroy(vector<vector<int>>& cyclesPoints, const vector<IndexedMove>& possibleMoves, const vector<vector<int>>& distances)
+{
+    // Destroy 30% of vertices in each cycle
+    int numberToDestroy = int(0.3 * cyclesPoints[0].size());
+
+    // Set all points as taken
+    vector<bool> taken(distances.size(), true);
+
+    // Set indexes to start removing vertices
+    int firstChosenIndex = rand() % cyclesPoints[0].size();
+    int secondChosenIndex = rand() % cyclesPoints[1].size();
+    int firstCycleRemovalStart = (firstChosenIndex - int(numberToDestroy / 2) + cyclesPoints[0].size()) % cyclesPoints[0].size();
+    int secondCycleRemovalStart = (secondChosenIndex - int(numberToDestroy / 2) + cyclesPoints[1].size()) % cyclesPoints[1].size();
+
+    // Remove vertices and update taken
+    for (int i = 0; i < numberToDestroy; i++)
+    {
+        taken[cyclesPoints[0][(firstCycleRemovalStart) % cyclesPoints[0].size()]] = false;
+        cyclesPoints[0].erase(cyclesPoints[0].begin() + (firstCycleRemovalStart % cyclesPoints[0].size()));
+
+        taken[cyclesPoints[1][(secondCycleRemovalStart) % cyclesPoints[1].size()]] = false;
+        cyclesPoints[1].erase(cyclesPoints[1].begin() + (secondCycleRemovalStart % cyclesPoints[1].size()));
+    }
+
+    return taken;
+}
+
+pair<vector<vector<int>>, int> largeScaleNeighborhoodSearch(const vector<vector<int>>& distances,
+    const vector<IndexedMove>& possibleMoves, const int availableTime, const bool useLocalSearch)
+{
+    // Start time measurement
+    chrono::steady_clock::time_point startTime = chrono::steady_clock::now();
+    chrono::steady_clock::time_point currentTime = chrono::steady_clock::now();
+    int timeElapsed = 0;
+
+    // Generate first solution
+    vector<vector<int>> cyclesPoints = randomCycle(distances);
+    vector<bool> taken(distances.size(), true);
+
+    // Run steepest algorithm for first solution
+    steepest(cyclesPoints, distances, possibleMoves);
+
+    int perturbationCount = 0;
+    // Start the loop
+    do
+    {
+        vector<vector<int>> newCyclesPoints = cyclesPoints;
+
+        // Perturbate the cycles and get the taken vector
+        taken = destroy(newCyclesPoints, possibleMoves, distances);
+
+        // Repair the cycles
+        repair(newCyclesPoints, taken, distances, COST_WEIGHT);
+
+        // Run steepest algorithm
+        if (useLocalSearch)
+            steepest(newCyclesPoints, distances, possibleMoves);
+
+        // Compare result to the previous cycle
+        if (getFullLength(newCyclesPoints, distances) < getFullLength(cyclesPoints, distances))
+            cyclesPoints = newCyclesPoints;
+
+        perturbationCount++;
+
+        // Measure time
+        currentTime = chrono::steady_clock::now();
+        timeElapsed = chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+    }
+    while (timeElapsed < availableTime);
+
+    return {cyclesPoints, perturbationCount};
+}
+
 GlobalTestsResults globalTests(const vector<vector<int>>& distances, const bool useCommonVertices, const bool compareBest)
 {
     vector<vector<int>> cyclesPoints;
@@ -602,19 +734,18 @@ GlobalTestsResults globalTests(const vector<vector<int>>& distances, const bool 
     if (!compareBest)
     {
         // Create best solution
-        cout << "Create best solution\n";
-        vector<bool> taken = vector<bool>(distances.size(), false);
-        for (int i = 0; i < 200; i++)
+        cout << "Create best solution using ILS2\n";
+        vector<IndexedMove> allPossibleMoves = generateMoves(distances.size() / 2, distances);
+        for (int i = 0; i < 5; i++)
         {
-            cout << (i/200.0) * 100.0 << "%\n";
-            // cyclesPoints = randomCycle(distances);
-            cyclesPoints = regretHeuristics(distances, i, COST_WEIGHT);
-            score = getFullLength(cyclesPoints, distances);
+            cout << (i/5.0) * 100.0 << "%\n";
+            pair<vector<vector<int>>, int> algorithmResult = largeScaleNeighborhoodSearch(distances, allPossibleMoves, 50, true);
+            score = getFullLength(algorithmResult.first, distances);
 
             if (score < bestScore)
             {
                 bestScore = score;
-                bestCycles = cyclesPoints;
+                bestCycles = algorithmResult.first;
             }
         }
         cout << "Best score: " << bestScore << "\n";
@@ -622,14 +753,13 @@ GlobalTestsResults globalTests(const vector<vector<int>>& distances, const bool 
 
     vector<IndexedMove> allPossibleMoves = generateMoves(distances.size() / 2, distances);
 
-    // Create 1000 solutions using greedy
+    // Create 1000 solutions using steepest
     cout << "Create 1000 solutions using greedy\n";
     vector<vector<vector<int>>> solutions;
     for (int i = 0; i < 1000; i++)
     {
         cout << (i/1000.0) * 100.0 << "%\n";
         cyclesPoints = randomCycle(distances);
-        // greedy(cyclesPoints, distances, allPossibleMoves);
         steepest(cyclesPoints, distances, allPossibleMoves);
         solutions.push_back(cyclesPoints);
         if (compareBest)
@@ -643,13 +773,13 @@ GlobalTestsResults globalTests(const vector<vector<int>>& distances, const bool 
         }
     }
 
-
     vector<int> commonBests;
     vector<float> commonMeans;
     // Compute differences
     cout << "Compute differences\n";
     for (int i = 0; i < solutions.size(); i++)
     {
+        cout << (i/1000.0) * 100.0 << "%\n";
         if (useCommonVertices)
             commonBests.push_back(commonVertices(solutions[i], bestCycles));
         else
@@ -694,12 +824,12 @@ GlobalTestsResults globalTests(const vector<vector<int>>& distances, const bool 
         vector<int> removedBestCommonBests = commonBests;
         removedBestCommonBests.erase(removedBestCommonBests.begin() + bestIndex);
 
-        vector<float> removedBestCommonMeans = commonMeans;
-        removedBestCommonMeans.erase(removedBestCommonMeans.begin() + bestIndex);
+        // vector<float> removedBestCommonMeans = commonMeans;
+        // removedBestCommonMeans.erase(removedBestCommonMeans.begin() + bestIndex);
 
         cout << "Współczynniki korelacji:\n";
         showCorrelation(removedBestScores, removedBestCommonBests, "Różnice w stosunku do najlepszego rozwiązania: ");
-        showCorrelation(removedBestScores, removedBestCommonMeans, "Średnie różnice: ");
+        // showCorrelation(removedBestScores, removedBestCommonMeans, "Średnie różnice: ");
     }
     else
     {
@@ -715,7 +845,7 @@ int main(int argc, char* argv[])
     if (argc != 7)
     {
         cerr << "Usage: " << argv[0] << " <input_filename> <output_filename_1> <output_filename_2>";
-        cerr << " <output_filename_3> <common-vertices|common-edges> <compare-best|compare-regret>" << endl;
+        cerr << " <output_filename_3> <common-vertices|common-edges> <compare-best|compare-ils2>" << endl;
         return 1;
     }
 
