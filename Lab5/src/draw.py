@@ -56,7 +56,7 @@ def draw_map(vertices, connections1, connections2, map_filename, title='', color
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process vertex file')
     parser.add_argument('vertex_file', type=str, help='Path to the vertex file')
-    parser.add_argument('algorithm', type=str, help='Type of algorithm', choices=['hae-local-search', 'hae-no-local-search'])
+    parser.add_argument('algorithm', type=str, help='Type of algorithm', choices=['hae-local-search', 'hae-no-local-search', 'regret'])
     args = parser.parse_args()
     instance = args.vertex_file.split('.')[0].split('/')[1]
     connection_file1 = f"out/1.txt"
